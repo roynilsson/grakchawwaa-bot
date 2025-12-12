@@ -168,7 +168,7 @@ export class WarningPGClient {
     }
 
     try {
-      const queryParts = [QUERIES.LIST_WARNINGS_BASE]
+      const queryParts: string[] = [QUERIES.LIST_WARNINGS_BASE]
       const queryParams: unknown[] = [params.guildId]
       let paramIndex = 2
 
@@ -189,7 +189,7 @@ export class WarningPGClient {
         queryParams.push(params.limit)
       }
 
-      const fullQuery = queryParts.join("\n")
+      const fullQuery: string = queryParts.join("\n")
       const result = await this.query<WarningWithTypeRow>(
         fullQuery,
         queryParams,
@@ -227,7 +227,7 @@ export class WarningPGClient {
     }
 
     try {
-      let query = QUERIES.GET_PLAYER_WARNING_COUNT
+      let query: string = QUERIES.GET_PLAYER_WARNING_COUNT
       const params: unknown[] = [guildId, days]
 
       if (limit && limit > 0) {
