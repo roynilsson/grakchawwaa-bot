@@ -22,7 +22,8 @@ const initializeHerokuDatabase = async (): Promise<void> => {
       ticket_collection_channel_id text,
       next_ticket_collection_refresh_time text,
       ticket_reminder_channel_id text,
-      anniversary_channel_id text
+      anniversary_channel_id text,
+      echobase_channel_id text
     );
 
     -- Create a function to delete old records
@@ -46,6 +47,47 @@ const initializeHerokuDatabase = async (): Promise<void> => {
     -- Initial cleanup of old records
     DELETE FROM ticketViolations
     WHERE date < NOW() - INTERVAL '3 months';
+
+    -- TB instances to track different Territory Battle events
+    CREATE TABLE IF NOT EXISTS tb_instances (
+      id SERIAL PRIMARY KEY,
+      guild_id text NOT NULL,
+      tb_event_id text NOT NULL,
+      start_time timestamp NOT NULL,
+      end_time timestamp,
+      is_active boolean DEFAULT true,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Platoon assignments parsed from Echobase messages
+    CREATE TABLE IF NOT EXISTS platoon_assignments (
+      id SERIAL PRIMARY KEY,
+      tb_instance_id integer NOT NULL REFERENCES tb_instances(id) ON DELETE CASCADE,
+      zone_id text NOT NULL,
+      platoon_number integer NOT NULL,
+      squad_number integer NOT NULL,
+      slot_number integer NOT NULL,
+      assigned_player_name text NOT NULL,
+      assigned_unit_name text NOT NULL,
+      message_id text,
+      assigned_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (tb_instance_id, zone_id, platoon_number, squad_number, slot_number)
+    );
+
+    -- Unit name mappings (Echobase name -> API identifier)
+    CREATE TABLE IF NOT EXISTS unit_name_mappings (
+      id SERIAL PRIMARY KEY,
+      echobase_name text NOT NULL UNIQUE,
+      api_identifier text NOT NULL,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_tb_instances_guild_active ON tb_instances(guild_id, is_active);
+    CREATE INDEX IF NOT EXISTS idx_platoon_assignments_tb_instance ON platoon_assignments(tb_instance_id);
+    CREATE INDEX IF NOT EXISTS idx_platoon_assignments_zone ON platoon_assignments(zone_id);
+    CREATE INDEX IF NOT EXISTS idx_unit_mappings_echobase ON unit_name_mappings(echobase_name);
   `
 
   const client = new Client({
