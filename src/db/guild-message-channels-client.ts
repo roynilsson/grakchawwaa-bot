@@ -6,6 +6,7 @@ interface TicketChannelRow extends QueryResultRow {
   next_ticket_collection_refresh_time: string
   ticket_reminder_channel_id: string | null
   anniversary_channel_id: string
+  echobase_channel_id: string | null
 }
 
 const QUERIES = {
@@ -31,13 +32,24 @@ const QUERIES = {
     SET anniversary_channel_id = NULL
     WHERE guild_id = $1;
   `,
+  REGISTER_ECHOBASE_CHANNEL: `
+    INSERT INTO guildMessageChannels (guild_id, echobase_channel_id)
+    VALUES ($1, $2)
+    ON CONFLICT (guild_id) DO UPDATE
+    SET echobase_channel_id = $2;
+  `,
+  UNREGISTER_ECHOBASE_CHANNEL: `
+    UPDATE guildMessageChannels
+    SET echobase_channel_id = NULL
+    WHERE guild_id = $1;
+  `,
   GET_GUILD_MESSAGE_CHANNELS: `
-    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id
+    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id, echobase_channel_id
     FROM guildMessageChannels
     WHERE guild_id = $1;
   `,
   GET_ALL_GUILDS: `
-    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id
+    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id, echobase_channel_id
     FROM guildMessageChannels;
   `,
   UNREGISTER_CHANNEL: `
@@ -193,6 +205,39 @@ export class GuildMessageChannelsClient {
       return true
     } catch (error) {
       console.error("Error unregistering ticket collection channel:", error)
+      return false
+    }
+  }
+
+  public async registerEchobaseChannel(
+    guildId: string,
+    channelId: string,
+  ): Promise<boolean> {
+    if (!guildId || !channelId) {
+      console.error("Invalid guild or channel ID")
+      return false
+    }
+
+    try {
+      await this.query(QUERIES.REGISTER_ECHOBASE_CHANNEL, [guildId, channelId])
+      return true
+    } catch (error) {
+      console.error("Error registering Echobase channel:", error)
+      return false
+    }
+  }
+
+  public async unregisterEchobaseChannel(guildId: string): Promise<boolean> {
+    if (!guildId) {
+      console.error("Invalid guild ID")
+      return false
+    }
+
+    try {
+      await this.query(QUERIES.UNREGISTER_ECHOBASE_CHANNEL, [guildId])
+      return true
+    } catch (error) {
+      console.error("Error unregistering Echobase channel:", error)
       return false
     }
   }
