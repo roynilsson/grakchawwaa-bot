@@ -81,4 +81,16 @@ export class CacheService {
     }
     this.cache.clear()
   }
+
+  public debugListKeys(): string[] {
+    return Array.from(this.cache.keys())
+  }
+
+  public debugGetStats(): { totalEntries: number; keys: string[] } {
+    const keys = Array.from(this.cache.keys())
+    return {
+      totalEntries: this.cache.size,
+      keys,
+    }
+  }
 }

@@ -85,7 +85,8 @@ export class CachedComlinkClient {
 
   public async getPlayer(allyCode: string): Promise<ComlinkPlayerData | null> {
     const cacheKey = `player:${allyCode}`
-    return this.cache.getOrSet(
+    console.log(`[CachedComlinkClient] Fetching player with ally code: ${allyCode}`)
+    const result = await this.cache.getOrSet(
       cacheKey,
       () =>
         this.retryWithBackoff(
@@ -93,5 +94,7 @@ export class CachedComlinkClient {
           `getPlayer(${allyCode})`,
         ),
     )
+    console.log(`[CachedComlinkClient] Player data received:`, result ? 'SUCCESS' : 'NULL')
+    return result
   }
 }
