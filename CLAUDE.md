@@ -19,24 +19,164 @@
 
 ```
 ├── src/
-│   ├── commands/          # Discord slash commands
-│   ├── db/                # Database clients and queries
-│   ├── services/          # Business logic services
+│   ├── commands/          # Discord slash commands (User interaction layer)
+│   │   ├── guild/         # Guild management commands
+│   │   └── player/        # Player management commands
+│   ├── db/                # Database clients (Data access layer - Repository pattern)
+│   ├── services/          # Business logic services (Application layer)
 │   │   ├── comlink/       # SWGOH Comlink API integration
 │   │   ├── ticket-monitor.ts
 │   │   ├── anniversary-monitor.ts
 │   │   └── violation-summary.ts
-│   ├── model/             # Data models
+│   ├── model/             # Data models (Domain entities)
 │   ├── types/             # TypeScript type definitions
-│   ├── utils/             # Utility functions
+│   ├── utils/             # Utility functions (Pure functions, no business logic)
 │   ├── tests/             # Test files
 │   ├── index.ts           # Main entry point
 │   └── discord-bot-client.ts
+├── migrations/            # Database migration files (node-pg-migrate)
 ├── infra/                 # Infrastructure scripts (DB setup, command reset)
 ├── docs/                  # Legal documents (ToS, Privacy Policy)
 ├── docker-compose.yml     # Local PostgreSQL setup
 └── package.json
 ```
+
+## Architecture & Design Patterns
+
+### Layered Architecture
+
+The bot follows a clean layered architecture with clear separation of concerns:
+
+```
+┌─────────────────────────────────────────┐
+│  Commands Layer (src/commands/)          │  ← User interaction via Discord
+│  - Handles Discord interactions          │
+│  - Input validation                      │
+│  - Response formatting                   │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  Services Layer (src/services/)          │  ← Business logic & orchestration
+│  - Business rules                        │
+│  - Orchestrates multiple data sources    │
+│  - Calls external APIs (Comlink)         │
+│  - Transforms data for presentation      │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  Database Layer (src/db/)                │  ← Data persistence (Repository)
+│  - CRUD operations only                  │
+│  - No business logic                     │
+│  - No external API calls                 │
+│  - Direct SQL queries via pg library     │
+└─────────────────────────────────────────┘
+```
+
+### Folder Responsibilities
+
+#### `/src/commands/` - Discord Command Handlers
+**Role:** Handle user interactions, validate input, format responses
+
+**Responsibilities:**
+- Parse Discord command options
+- Validate user input (ally codes, channel IDs, permissions)
+- Call appropriate services to execute business logic
+- Format and send Discord responses (embeds, buttons, etc.)
+- Handle Discord-specific errors (permission denied, channel not found)
+
+**Rules:**
+- ✅ Can call services from `src/services/`
+- ✅ Can call database clients from `src/db/`
+- ✅ Should handle Discord-specific formatting
+- ❌ Should NOT contain complex business logic
+- ❌ Should NOT call external APIs directly (use services)
+
+**Example:** `/register-player` command validates ally code format, calls service to register, formats success message
+
+#### `/src/services/` - Business Logic Layer
+**Role:** Implement business rules, orchestrate operations, integrate external APIs
+
+**Responsibilities:**
+- Implement core business logic (ticket violation rules, anniversary calculations)
+- Orchestrate multiple data sources (database + Comlink API)
+- Call external APIs (Comlink for game data)
+- Transform data between layers (API → Domain models)
+- Cache external API responses
+- Background jobs (monitoring, scheduled tasks)
+
+**Rules:**
+- ✅ Can call database clients from `src/db/`
+- ✅ Can call external APIs (Comlink)
+- ✅ Contains business logic and validation rules
+- ✅ Can transform and aggregate data from multiple sources
+- ❌ Should NOT handle Discord-specific formatting
+- ❌ Should NOT directly interact with Discord API
+
+**Example:** `TicketMonitorService` fetches guild data from Comlink, queries player database, applies violation rules, stores results
+
+#### `/src/db/` - Database Repository Layer
+**Role:** Encapsulate all database access, provide clean data access API
+
+**Responsibilities:**
+- Execute SQL queries via `pg` library
+- Map database rows to domain models
+- Handle database connection pooling
+- Provide CRUD operations (Create, Read, Update, Delete)
+- Handle database-specific errors
+
+**Rules:**
+- ✅ Pure data access - CRUD operations only
+- ✅ Return domain models from `src/model/`
+- ✅ Handle SQL queries and transactions
+- ❌ NO business logic whatsoever
+- ❌ NO calls to external APIs (Comlink, Discord, etc.)
+- ❌ NO data transformation beyond mapping DB → model
+- ❌ NO validation beyond basic type checking
+
+**Example:** `PlayerPGClient` provides `getPlayersByDiscordId()`, `registerAllyCode()`, `removeAllyCode()` - just database operations
+
+#### `/src/services/comlink/` - External API Integration
+**Role:** Interface with SWGOH Comlink API
+
+**Responsibilities:**
+- Wrap Comlink API calls
+- Implement caching to reduce API load
+- Handle rate limiting and retries
+- Map Comlink responses to internal models
+
+**Rules:**
+- ✅ Only responsible for Comlink API communication
+- ✅ Should cache responses
+- ✅ Should handle API-specific errors (503, rate limits)
+- ❌ Should NOT contain business logic
+- ❌ Should NOT access database
+
+**Example:** `CachedComlinkClient.getPlayer(allyCode)` fetches player data from Comlink with caching
+
+#### `/src/model/` - Domain Models
+**Role:** Define data structures used throughout the application
+
+**Responsibilities:**
+- TypeScript interfaces for domain entities
+- No logic, just data structure definitions
+
+**Example:** `Player`, `DiscordPlayer` interfaces
+
+#### `/src/utils/` - Utility Functions
+**Role:** Pure utility functions with no side effects
+
+**Responsibilities:**
+- String formatting (ally codes, dates)
+- Validation helpers
+- Pure functions only
+
+**Rules:**
+- ✅ Pure functions (same input → same output)
+- ❌ NO database access
+- ❌ NO API calls
+- ❌ NO business logic
+
+**Example:** `normalizeAllyCode()` formats ally codes consistently
 
 ## Core Functionality
 
@@ -75,10 +215,60 @@
 
 ## Database Schema
 
+### Migration System
+The bot uses [node-pg-migrate](https://salsita.github.io/node-pg-migrate/) for database version control.
+
+**Commands:**
+```bash
+# Development
+pnpm migrate:up          # Apply migrations
+pnpm migrate:down        # Rollback last migration
+pnpm migrate:create      # Create new migration
+
+# Production
+pnpm migrate:up:prod     # Apply migrations to production
+pnpm migrate:down:prod   # Rollback production migration
+```
+
 ### Tables
-- `players` - Discord ID → Ally Code mappings, registration timestamps
-- `guild_message_channels` - Guild → Discord channel mappings for notifications
-- `ticket_violations` - Historical ticket violation records
+
+#### `guilds`
+SWGOH guild master table
+- `guild_id` (text, PK) - SWGOH guild ID
+- `guild_name` (text) - Guild name
+- `discord_server_id` (text) - Discord server ID
+- `created_at`, `updated_at` (timestamp)
+
+#### `guild_configs`
+Flexible key-value configuration for guilds
+- `guild_id` (text, PK) - FK to guilds
+- `name` (text, PK) - Config key (e.g., "ticket_collection_channel_id")
+- `value` (text) - Config value
+
+**Common config keys:**
+- `ticket_collection_channel_id` - Discord channel for ticket summaries
+- `next_ticket_collection_refresh_time` - Unix timestamp for next check
+- `ticket_reminder_channel_id` - Discord channel for reminders
+- `anniversary_channel_id` - Discord channel for anniversary messages
+
+#### `players`
+Player registrations - one row per ally code
+- `ally_code` (char(9), PK) - SWGOH ally code
+- `discord_id` (text) - Discord user ID
+- `alt` (integer) - 1 = primary account, 2+ = alt accounts
+- `player_id` (text) - SWGOH player ID from Comlink
+- `player_name` (text) - Player name from Comlink
+- `guild_id` (text) - SWGOH guild ID from Comlink
+- `registered_at` (timestamp)
+- UNIQUE constraint on `(discord_id, alt)`
+
+**Important:** Each ally code is a separate row. A Discord user with multiple accounts has multiple rows.
+
+#### `ticket_violations`
+Historical ticket violation records
+- `guild_id` (text, PK) - SWGOH guild ID
+- `date` (timestamp, PK) - Date of violation check
+- `ticket_counts` (jsonb) - JSON object with player ticket data
 
 ## Development Setup
 

@@ -37,6 +37,53 @@ Discord bot for Star Wars: Galaxy of Heroes guild management.
 
 - `/ping` - Check if the bot is online and responsive
 
+## Architecture
+
+The bot follows a clean layered architecture with separation of concerns:
+
+```
+┌─────────────────────────────────────────┐
+│  Commands Layer (src/commands/)          │  ← Discord slash commands
+│  - User interaction & input validation   │
+│  - Response formatting                   │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  Services Layer (src/services/)          │  ← Business logic
+│  - Orchestrates data sources             │
+│  - Calls external APIs (Comlink)         │
+│  - Implements business rules             │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  Database Layer (src/db/)                │  ← Data persistence
+│  - CRUD operations only                  │
+│  - Repository pattern                    │
+│  - Direct SQL via pg library             │
+└─────────────────────────────────────────┘
+```
+
+### Project Structure
+
+```
+src/
+├── commands/          # Discord slash commands (user interaction)
+│   ├── guild/         # Guild management commands
+│   └── player/        # Player registration commands
+├── db/                # Database clients (repository pattern)
+├── services/          # Business logic & API orchestration
+│   └── comlink/       # SWGOH Comlink API integration
+├── model/             # Domain models (TypeScript interfaces)
+├── utils/             # Pure utility functions
+└── types/             # TypeScript type definitions
+```
+
+**Design Principles:**
+- **Commands** handle Discord interactions only - no business logic
+- **Services** contain business rules and orchestrate multiple data sources
+- **Database clients** are pure repositories - no API calls, no business logic
+- Each layer has a single responsibility
+
 ## Development
 
 The bot is built using TypeScript and the Sapphire Discord.js framework.
