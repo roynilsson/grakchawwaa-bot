@@ -90,11 +90,17 @@ export const insertTestData = async (
   try {
     await client.connect()
 
+    // First ensure guild exists
+    await client.query(
+      `INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING`,
+      [guildId],
+    )
+
     for (const data of testData) {
       const query = `
-        INSERT INTO ticketViolations (guild_id, date, ticket_counts)
+        INSERT INTO ticket_violations (guild_id, date, ticket_counts)
         VALUES ($1, $2, $3)
-        ON CONFLICT (guild_id, date) DO UPDATE 
+        ON CONFLICT (guild_id, date) DO UPDATE
         SET ticket_counts = $3
       `
       await client.query(query, [

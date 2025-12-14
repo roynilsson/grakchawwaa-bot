@@ -2,48 +2,23 @@ import { Pool, QueryResult, QueryResultRow } from "pg"
 
 interface TicketChannelRow extends QueryResultRow {
   guild_id: string
-  ticket_collection_channel_id: string
-  next_ticket_collection_refresh_time: string
+  ticket_collection_channel_id: string | null
+  next_ticket_collection_refresh_time: string | null
   ticket_reminder_channel_id: string | null
-  anniversary_channel_id: string
+  anniversary_channel_id: string | null
 }
 
-const QUERIES = {
-  REGISTER_TICKET_COLLECTION_CHANNEL: `
-    INSERT INTO guildMessageChannels (guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (guild_id) DO UPDATE 
-    SET ticket_collection_channel_id = EXCLUDED.ticket_collection_channel_id,
-        next_ticket_collection_refresh_time = EXCLUDED.next_ticket_collection_refresh_time,
-        ticket_reminder_channel_id = COALESCE(
-          EXCLUDED.ticket_reminder_channel_id,
-          guildMessageChannels.ticket_reminder_channel_id
-        );
-  `,
-  REGISTER_ANNIVERSARY_CHANNEL: `
-    INSERT INTO guildMessageChannels (guild_id, anniversary_channel_id)
-    VALUES ($1, $2)
-    ON CONFLICT (guild_id) DO UPDATE 
-    SET anniversary_channel_id = $2;
-  `,
-  UNREGISTER_ANNIVERSARY_CHANNEL: `
-    UPDATE guildMessageChannels
-    SET anniversary_channel_id = NULL
-    WHERE guild_id = $1;
-  `,
-  GET_GUILD_MESSAGE_CHANNELS: `
-    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id
-    FROM guildMessageChannels
-    WHERE guild_id = $1;
-  `,
-  GET_ALL_GUILDS: `
-    SELECT guild_id, ticket_collection_channel_id, next_ticket_collection_refresh_time, ticket_reminder_channel_id, anniversary_channel_id
-    FROM guildMessageChannels;
-  `,
-  UNREGISTER_CHANNEL: `
-    DELETE FROM guildMessageChannels
-    WHERE guild_id = $1;
-  `,
+interface GuildConfigRow extends QueryResultRow {
+  guild_id: string
+  name: string
+  value: string
+}
+
+const CONFIG_KEYS = {
+  TICKET_COLLECTION_CHANNEL: "ticket_collection_channel_id",
+  NEXT_REFRESH_TIME: "next_ticket_collection_refresh_time",
+  TICKET_REMINDER_CHANNEL: "ticket_reminder_channel_id",
+  ANNIVERSARY_CHANNEL: "anniversary_channel_id",
 } as const
 
 export class GuildMessageChannelsClient {
@@ -89,6 +64,40 @@ export class GuildMessageChannelsClient {
     }
   }
 
+  private async setConfig(
+    guildId: string,
+    key: string,
+    value: string,
+  ): Promise<void> {
+    await this.query(
+      `INSERT INTO guild_configs (guild_id, name, value)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (guild_id, name) DO UPDATE
+       SET value = EXCLUDED.value`,
+      [guildId, key, value],
+    )
+  }
+
+  private async deleteConfig(guildId: string, key: string): Promise<void> {
+    await this.query(
+      `DELETE FROM guild_configs WHERE guild_id = $1 AND name = $2`,
+      [guildId, key],
+    )
+  }
+
+  private async getGuildConfigs(guildId: string): Promise<Map<string, string>> {
+    const result = await this.query<GuildConfigRow>(
+      `SELECT name, value FROM guild_configs WHERE guild_id = $1`,
+      [guildId],
+    )
+
+    const configMap = new Map<string, string>()
+    for (const row of result.rows) {
+      configMap.set(row.name, row.value)
+    }
+    return configMap
+  }
+
   public async registerTicketCollectionChannel(
     guildId: string,
     channelId: string,
@@ -101,12 +110,35 @@ export class GuildMessageChannelsClient {
     }
 
     try {
-      await this.query(QUERIES.REGISTER_TICKET_COLLECTION_CHANNEL, [
+      // Ensure guild exists in guilds table
+      await this.query(
+        `INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING`,
+        [guildId],
+      )
+
+      // Set ticket collection channel
+      await this.setConfig(
         guildId,
+        CONFIG_KEYS.TICKET_COLLECTION_CHANNEL,
         channelId,
+      )
+
+      // Set next refresh time
+      await this.setConfig(
+        guildId,
+        CONFIG_KEYS.NEXT_REFRESH_TIME,
         nextRefreshTime,
-        reminderChannelId ?? null,
-      ])
+      )
+
+      // Set reminder channel if provided, otherwise preserve existing value
+      if (reminderChannelId) {
+        await this.setConfig(
+          guildId,
+          CONFIG_KEYS.TICKET_REMINDER_CHANNEL,
+          reminderChannelId,
+        )
+      }
+
       return true
     } catch (error) {
       console.error("Error registering ticket collection channel:", error)
@@ -124,10 +156,13 @@ export class GuildMessageChannelsClient {
     }
 
     try {
-      await this.query(QUERIES.REGISTER_ANNIVERSARY_CHANNEL, [
-        guildId,
-        channelId,
-      ])
+      // Ensure guild exists
+      await this.query(
+        `INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING`,
+        [guildId],
+      )
+
+      await this.setConfig(guildId, CONFIG_KEYS.ANNIVERSARY_CHANNEL, channelId)
       return true
     } catch (error) {
       console.error("Error registering anniversary channel:", error)
@@ -142,7 +177,7 @@ export class GuildMessageChannelsClient {
     }
 
     try {
-      await this.query(QUERIES.UNREGISTER_ANNIVERSARY_CHANNEL, [guildId])
+      await this.deleteConfig(guildId, CONFIG_KEYS.ANNIVERSARY_CHANNEL)
       return true
     } catch (error) {
       console.error("Error unregistering anniversary channel:", error)
@@ -152,8 +187,28 @@ export class GuildMessageChannelsClient {
 
   public async getAllGuilds(): Promise<TicketChannelRow[]> {
     try {
-      const result = await this.query<TicketChannelRow>(QUERIES.GET_ALL_GUILDS)
-      return result.rows
+      // Get all unique guild IDs from guild_configs
+      const guildsResult = await this.query<{ guild_id: string }>(
+        `SELECT DISTINCT guild_id FROM guild_configs`,
+      )
+
+      const guilds: TicketChannelRow[] = []
+      for (const row of guildsResult.rows) {
+        const config = await this.getGuildConfigs(row.guild_id)
+        guilds.push({
+          guild_id: row.guild_id,
+          ticket_collection_channel_id:
+            config.get(CONFIG_KEYS.TICKET_COLLECTION_CHANNEL) || null,
+          next_ticket_collection_refresh_time:
+            config.get(CONFIG_KEYS.NEXT_REFRESH_TIME) || null,
+          ticket_reminder_channel_id:
+            config.get(CONFIG_KEYS.TICKET_REMINDER_CHANNEL) || null,
+          anniversary_channel_id:
+            config.get(CONFIG_KEYS.ANNIVERSARY_CHANNEL) || null,
+        })
+      }
+
+      return guilds
     } catch (error) {
       console.error("Error getting all guild ticket collections:", error)
       return []
@@ -169,11 +224,24 @@ export class GuildMessageChannelsClient {
     }
 
     try {
-      const result = await this.query<TicketChannelRow>(
-        QUERIES.GET_GUILD_MESSAGE_CHANNELS,
-        [guildId],
-      )
-      return result.rows[0] || null
+      const config = await this.getGuildConfigs(guildId)
+
+      // If no config exists, return null
+      if (config.size === 0) {
+        return null
+      }
+
+      return {
+        guild_id: guildId,
+        ticket_collection_channel_id:
+          config.get(CONFIG_KEYS.TICKET_COLLECTION_CHANNEL) || null,
+        next_ticket_collection_refresh_time:
+          config.get(CONFIG_KEYS.NEXT_REFRESH_TIME) || null,
+        ticket_reminder_channel_id:
+          config.get(CONFIG_KEYS.TICKET_REMINDER_CHANNEL) || null,
+        anniversary_channel_id:
+          config.get(CONFIG_KEYS.ANNIVERSARY_CHANNEL) || null,
+      }
     } catch (error) {
       console.error("Error getting guild message channels:", error)
       return null
@@ -189,7 +257,17 @@ export class GuildMessageChannelsClient {
     }
 
     try {
-      await this.query(QUERIES.UNREGISTER_CHANNEL, [guildId])
+      // Delete all configs for this guild
+      await this.query(`DELETE FROM guild_configs WHERE guild_id = $1`, [
+        guildId,
+      ])
+      // Also delete from guilds table if no configs remain
+      await this.query(
+        `DELETE FROM guilds
+         WHERE guild_id = $1
+         AND NOT EXISTS (SELECT 1 FROM guild_configs WHERE guild_id = $1)`,
+        [guildId],
+      )
       return true
     } catch (error) {
       console.error("Error unregistering ticket collection channel:", error)

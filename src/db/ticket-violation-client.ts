@@ -8,19 +8,19 @@ export interface TicketViolationRow extends QueryResultRow {
 
 const QUERIES = {
   RECORD_VIOLATIONS: `
-    INSERT INTO ticketViolations (guild_id, date, ticket_counts)
+    INSERT INTO ticket_violations (guild_id, date, ticket_counts)
     VALUES ($1, $2, $3);
   `,
   GET_RECENT_VIOLATIONS: `
     SELECT guild_id, date, ticket_counts
-    FROM ticketViolations
+    FROM ticket_violations
     WHERE guild_id = $1
     ORDER BY date DESC
     LIMIT 7;
   `,
   GET_CUSTOM_PERIOD_VIOLATIONS: `
     SELECT guild_id, date, ticket_counts
-    FROM ticketViolations
+    FROM ticket_violations
     WHERE guild_id = $1
       AND date >= NOW() - INTERVAL '$2 days'
     ORDER BY date DESC;
@@ -156,7 +156,7 @@ export class TicketViolationPGClient {
       // For parameterized intervals, we need to build the query dynamically
       const query = `
         SELECT guild_id, date, ticket_counts
-        FROM ticketViolations
+        FROM ticket_violations
         WHERE guild_id = $1
           AND date >= NOW() - INTERVAL '${days} days'
         ORDER BY date DESC;
