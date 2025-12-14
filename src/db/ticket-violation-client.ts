@@ -1,4 +1,5 @@
-import { Pool, QueryResult, QueryResultRow } from "pg"
+import { QueryResultRow } from "pg"
+import { BasePGClient } from "./base-pg-client"
 
 export interface TicketViolationRow extends QueryResultRow {
   guild_id: string
@@ -27,48 +28,7 @@ const QUERIES = {
   `,
 } as const
 
-export class TicketViolationPGClient {
-  private pool: Pool
-
-  constructor() {
-    const isProduction = process.env.NODE_ENV === "production"
-    const connectionConfig = isProduction
-      ? {
-          connectionString: process.env.PG_DATABASE_URL,
-          ssl: {
-            rejectUnauthorized: false,
-          },
-        }
-      : {
-          user: process.env.PGUSER,
-          host: process.env.PGHOST,
-          database: process.env.PGDATABASE,
-          password: process.env.PGPASSWORD,
-          port: parseInt(process.env.PGPORT || "5432", 10),
-        }
-
-    this.pool = new Pool(connectionConfig)
-
-    this.pool.on("error", (err) => {
-      console.error("Unexpected error on idle client", err)
-    })
-  }
-
-  public async disconnect(): Promise<void> {
-    await this.pool.end()
-  }
-
-  private async query<T extends QueryResultRow>(
-    text: string,
-    params?: unknown[],
-  ): Promise<QueryResult<T>> {
-    const client = await this.pool.connect()
-    try {
-      return await client.query<T>(text, params)
-    } finally {
-      client.release()
-    }
-  }
+export class TicketViolationPGClient extends BasePGClient {
 
   /**
    * Process database rows to ensure ticket_counts values are numbers

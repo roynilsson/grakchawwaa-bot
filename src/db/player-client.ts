@@ -1,6 +1,7 @@
-import { Pool, QueryResult, QueryResultRow } from "pg"
+import { QueryResultRow } from "pg"
 import { Player } from "../model/player"
 import { normalizeAllyCode } from "../utils/ally-code"
+import { BasePGClient } from "./base-pg-client"
 
 interface PlayerRow extends QueryResultRow {
   ally_code: string
@@ -12,48 +13,7 @@ interface PlayerRow extends QueryResultRow {
   registered_at: Date | string
 }
 
-export class PlayerPGClient {
-  private pool: Pool
-
-  constructor() {
-    const isProduction = process.env.NODE_ENV === "production"
-    const connectionConfig = isProduction
-      ? {
-          connectionString: process.env.PG_DATABASE_URL,
-          ssl: {
-            rejectUnauthorized: false,
-          },
-        }
-      : {
-          user: process.env.PGUSER,
-          host: process.env.PGHOST,
-          database: process.env.PGDATABASE,
-          password: process.env.PGPASSWORD,
-          port: parseInt(process.env.PGPORT || "5432", 10),
-        }
-
-    this.pool = new Pool(connectionConfig)
-
-    this.pool.on("error", (err) => {
-      console.error("Unexpected error on idle client", err)
-    })
-  }
-
-  public async disconnect(): Promise<void> {
-    await this.pool.end()
-  }
-
-  private async query<T extends QueryResultRow>(
-    text: string,
-    params?: unknown[],
-  ): Promise<QueryResult<T>> {
-    const client = await this.pool.connect()
-    try {
-      return await client.query<T>(text, params)
-    } finally {
-      client.release()
-    }
-  }
+export class PlayerPGClient extends BasePGClient {
 
   private rowToPlayer(row: PlayerRow): Player {
     return {
