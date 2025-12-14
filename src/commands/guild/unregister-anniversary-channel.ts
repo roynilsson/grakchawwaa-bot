@@ -82,7 +82,7 @@ export class UnregisterAnniversaryChannelCommand extends Command {
 
       // Check if the guild is registered for anniversary notifications
       const guildChannels =
-        await container.ticketChannelClient.getGuildMessageChannels(
+        await container.guildConfigClient.getGuildMessageChannels(
           comlinkGuild.guild.profile.id,
         )
       if (!guildChannels || !guildChannels.anniversary_channel_id) {
@@ -94,7 +94,7 @@ export class UnregisterAnniversaryChannelCommand extends Command {
 
       // Unregister the guild
       const success =
-        await container.ticketChannelClient.unregisterAnniversaryChannel(
+        await container.guildConfigClient.unregisterAnniversaryChannel(
           comlinkPlayer.guildId,
         )
       if (!success) {

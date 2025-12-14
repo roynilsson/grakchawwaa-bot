@@ -22,7 +22,7 @@ const CONFIG_KEYS = {
   ANNIVERSARY_CHANNEL: "anniversary_channel_id",
 } as const
 
-export class GuildMessageChannelsClient extends BasePGClient {
+export class GuildConfigPGClient extends BasePGClient {
 
   private async setConfig(
     guildId: string,

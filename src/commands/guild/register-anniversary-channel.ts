@@ -243,7 +243,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
     channelId: string,
   ): Promise<CommandResponse> {
     const success =
-      await container.ticketChannelClient.registerAnniversaryChannel(
+      await container.guildConfigClient.registerAnniversaryChannel(
         guildId,
         channelId,
       )

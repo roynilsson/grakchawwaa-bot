@@ -1,5 +1,5 @@
 import { container } from "@sapphire/pieces"
-import { GuildMessageChannelsClient } from "./guild-message-channels-client"
+import { GuildConfigPGClient } from "./guild-config-client"
 import { GuildPGClient } from "./guild-client"
 import { PlayerPGClient } from "./player-client"
 import { TicketViolationPGClient } from "./ticket-violation-client"
@@ -8,7 +8,7 @@ declare module "@sapphire/pieces" {
   interface Container {
     playerClient: PlayerPGClient
     guildClient: GuildPGClient
-    ticketChannelClient: GuildMessageChannelsClient
+    guildConfigClient: GuildConfigPGClient
     ticketViolationClient: TicketViolationPGClient
   }
 }
@@ -16,11 +16,11 @@ declare module "@sapphire/pieces" {
 export const setupPostgresClients = (): void => {
   const playerClient = new PlayerPGClient()
   const guildClient = new GuildPGClient()
-  const ticketChannelClient = new GuildMessageChannelsClient()
+  const guildConfigClient = new GuildConfigPGClient()
   const ticketViolationClient = new TicketViolationPGClient()
 
   container.playerClient = playerClient
   container.guildClient = guildClient
-  container.ticketChannelClient = ticketChannelClient
+  container.guildConfigClient = guildConfigClient
   container.ticketViolationClient = ticketViolationClient
 }

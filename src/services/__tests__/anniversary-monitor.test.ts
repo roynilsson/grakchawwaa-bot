@@ -34,7 +34,7 @@ jest.mock("../../discord-bot-client", () => ({
 // Mock the container
 jest.mock("@sapphire/pieces", () => ({
   container: {
-    ticketChannelClient: {
+    guildConfigClient: {
       getAllGuilds: jest.fn(),
     },
     cachedComlinkClient: {
@@ -157,7 +157,7 @@ describe("AnniversaryMonitorService", () => {
       }
 
       // Set up the mocks
-      mockContainer.ticketChannelClient.getAllGuilds.mockResolvedValue(
+      mockContainer.guildConfigClient.getAllGuilds.mockResolvedValue(
         mockGuilds,
       )
 
@@ -176,7 +176,7 @@ describe("AnniversaryMonitorService", () => {
       await (service as any).checkGuildAnniversaries()
 
       // Verify that getAllGuilds was called
-      expect(mockContainer.ticketChannelClient.getAllGuilds).toHaveBeenCalled()
+      expect(mockContainer.guildConfigClient.getAllGuilds).toHaveBeenCalled()
 
       // Verify that getGuild was called for guild1 and guild2
       expect(mockContainer.cachedComlinkClient.getGuild).toHaveBeenCalledWith(

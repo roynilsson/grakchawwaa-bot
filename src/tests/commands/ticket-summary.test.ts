@@ -39,7 +39,7 @@ jest.mock("@sapphire/pieces", () => ({
     cachedComlinkClient: {
       getPlayer: jest.fn(),
     },
-    ticketChannelClient: {
+    guildConfigClient: {
       getGuildMessageChannels: jest.fn(),
     },
   },
@@ -213,7 +213,7 @@ describe("TicketSummaryCommand", () => {
         guildId: "guild123",
         guildName: "Test Guild",
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         {
           ticket_collection_channel_id: "channel456",
         } as any,
@@ -288,7 +288,7 @@ describe("TicketSummaryCommand", () => {
         guildId: "guild123",
         guildName: "Test Guild",
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         null,
       )
 
@@ -310,7 +310,7 @@ describe("TicketSummaryCommand", () => {
         guildId: "guild123",
         guildName: "Test Guild",
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         {} as any,
       )
 
@@ -368,7 +368,7 @@ describe("TicketSummaryCommand", () => {
         guildId: "guild123",
         guildName: "Test Guild",
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         {
           ticket_collection_channel_id: "channel456",
         } as any,
@@ -406,7 +406,7 @@ describe("TicketSummaryCommand", () => {
         guildId: "guild123",
         guildName: "Test Guild",
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         {
           ticket_collection_channel_id: "channel456",
         } as any,
@@ -444,7 +444,7 @@ describe("TicketSummaryCommand", () => {
         playerId: "player123",
         level: 85,
       })
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         {
           guild_id: "guild123",
           ticket_collection_channel_id: "channel456",
@@ -536,7 +536,7 @@ describe("TicketSummaryCommand", () => {
         playerId: "player123",
         level: 85,
       } as any)
-      mockedContainer.ticketChannelClient.getGuildMessageChannels.mockResolvedValue(
+      mockedContainer.guildConfigClient.getGuildMessageChannels.mockResolvedValue(
         null,
       )
 

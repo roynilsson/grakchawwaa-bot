@@ -42,7 +42,7 @@ jest.mock("../../discord-bot-client", () => ({
 // Mock the container
 jest.mock("@sapphire/pieces", () => ({
   container: {
-    ticketChannelClient: {
+    guildConfigClient: {
       getAllGuilds: jest.fn(),
       registerChannel: jest.fn(),
     },
@@ -287,7 +287,7 @@ describe("TicketMonitorService", () => {
         (now + 30 * 60 * 1000) / 1000,
       ).toString()
 
-      mockContainer.ticketChannelClient.getAllGuilds.mockResolvedValue([
+      mockContainer.guildConfigClient.getAllGuilds.mockResolvedValue([
         {
           guild_id: "guild123",
           ticket_collection_channel_id: "channel456",
@@ -416,7 +416,7 @@ describe("TicketMonitorService", () => {
 
       // Set up mock guild data
       const resetTime = Math.floor(now / 1000) + 60 // 60 seconds in the future
-      mockContainer.ticketChannelClient.getAllGuilds.mockResolvedValue([
+      mockContainer.guildConfigClient.getAllGuilds.mockResolvedValue([
         {
           guild_id: "guild123",
           ticket_collection_channel_id: "channel456",
@@ -455,7 +455,7 @@ describe("TicketMonitorService", () => {
 
       // Set up mock guild data - refresh time in the past by more than the delay
       const resetTime = Math.floor(now / 1000) - 360 // 6 minutes in the past
-      mockContainer.ticketChannelClient.getAllGuilds.mockResolvedValue([
+      mockContainer.guildConfigClient.getAllGuilds.mockResolvedValue([
         {
           guild_id: "guild123",
           ticket_collection_channel_id: "channel456",
