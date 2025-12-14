@@ -67,9 +67,8 @@ const initializeHerokuDatabase = async (): Promise<void> => {
       platoon_number integer NOT NULL,
       squad_number integer NOT NULL,
       slot_number integer NOT NULL,
-      assigned_player_name text NOT NULL,
+      assigned_ally_code char(9) NOT NULL,
       assigned_unit_name text NOT NULL,
-      message_id text,
       assigned_at timestamp DEFAULT CURRENT_TIMESTAMP,
       UNIQUE (tb_instance_id, zone_id, platoon_number, squad_number, slot_number)
     );

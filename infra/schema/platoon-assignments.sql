@@ -22,11 +22,10 @@ CREATE TABLE IF NOT EXISTS platoon_assignments (
     slot_number INTEGER NOT NULL, -- 1-5
 
     -- Assignment details
-    assigned_player_name VARCHAR(255) NOT NULL, -- Player name from Echobase
+    assigned_ally_code CHAR(9) NOT NULL, -- Ally code of assigned player (unique identifier)
     assigned_unit_name VARCHAR(255) NOT NULL, -- Unit name from Echobase (may need mapping)
 
     -- Tracking
-    message_id VARCHAR(255), -- Discord message ID where assignment was posted
     assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT unique_slot_assignment UNIQUE (tb_instance_id, zone_id, platoon_number, squad_number, slot_number)

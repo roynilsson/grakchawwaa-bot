@@ -17,9 +17,8 @@ interface PlatoonAssignmentRow extends QueryResultRow {
   platoon_number: number
   squad_number: number
   slot_number: number
-  assigned_player_name: string
+  assigned_ally_code: string
   assigned_unit_name: string
-  message_id: string | null
   assigned_at: string
 }
 
@@ -54,14 +53,13 @@ const QUERIES = {
   UPSERT_PLATOON_ASSIGNMENT: `
     INSERT INTO platoon_assignments (
       tb_instance_id, zone_id, platoon_number, squad_number, slot_number,
-      assigned_player_name, assigned_unit_name, message_id
+      assigned_ally_code, assigned_unit_name
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (tb_instance_id, zone_id, platoon_number, squad_number, slot_number)
     DO UPDATE SET
-      assigned_player_name = EXCLUDED.assigned_player_name,
+      assigned_ally_code = EXCLUDED.assigned_ally_code,
       assigned_unit_name = EXCLUDED.assigned_unit_name,
-      message_id = EXCLUDED.message_id,
       assigned_at = CURRENT_TIMESTAMP
     RETURNING id;
   `,
@@ -193,9 +191,8 @@ export class PlatoonAssignmentsClient {
     platoonNumber: number,
     squadNumber: number,
     slotNumber: number,
-    playerName: string,
+    allyCode: string,
     unitName: string,
-    messageId?: string,
   ): Promise<number | null> {
     try {
       const result = await this.query<{ id: number }>(
@@ -206,9 +203,8 @@ export class PlatoonAssignmentsClient {
           platoonNumber,
           squadNumber,
           slotNumber,
-          playerName,
+          allyCode,
           unitName,
-          messageId || null,
         ],
       )
       return result.rows[0]?.id || null
