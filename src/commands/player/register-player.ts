@@ -1,17 +1,12 @@
 import { Command } from "@sapphire/framework"
 import { User, userMention } from "discord.js"
-import { Player } from "../../model/player"
-import { normalizeAllyCode, sanitizeAllyCodeList } from "../../utils/ally-code"
-import { PlayerOperationsCommand } from "./player-operations"
+import { normalizeAllyCode } from "../../utils/ally-code"
 
 export class RegisterPlayerCommand extends Command {
-  private playerOps: PlayerOperationsCommand
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.playerOps = new PlayerOperationsCommand(context, options)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -69,9 +64,10 @@ export class RegisterPlayerCommand extends Command {
       isAlt,
     )
 
-    const existingPlayer = await this.playerOps.getPlayer(targetUser.id)
+    const existingPlayers =
+      await this.container.playerClient.getPlayersByDiscordId(targetUser.id)
 
-    if (!existingPlayer) {
+    if (existingPlayers.length === 0) {
       return this.registerNewPlayer({
         interaction,
         allyCode: normalizedAllyCode,
@@ -87,8 +83,8 @@ export class RegisterPlayerCommand extends Command {
       isAlt,
       targetTag,
       requestedBy,
-      existingPlayer,
       targetUser,
+      existingPlayers,
     })
   }
 
@@ -105,11 +101,11 @@ export class RegisterPlayerCommand extends Command {
     targetTag: string
     requestedBy: string | null
   }) {
-    const saveResult = await this.playerOps.addUser({
-      discordUser: targetUser,
+    const saveResult = await this.container.playerClient.registerAllyCode(
+      targetUser.id,
       allyCode,
-      altAllyCodes: [],
-    })
+      true, // isPrimary
+    )
 
     if (!saveResult) {
       return interaction.reply({
@@ -118,8 +114,7 @@ export class RegisterPlayerCommand extends Command {
     }
 
     const baseMessage =
-      `Registered player with ally code: ${allyCode} ` +
-      `for ${targetTag}`
+      `Registered player with ally code: ${allyCode} ` + `for ${targetTag}`
     const replyMessage = `${baseMessage}${this.formatRequesterNote(
       requestedBy,
     )}.`
@@ -135,40 +130,44 @@ export class RegisterPlayerCommand extends Command {
     isAlt,
     targetTag,
     requestedBy,
-    existingPlayer,
     targetUser,
+    existingPlayers,
   }: {
     interaction: Command.ChatInputCommandInteraction
     allyCode: string
     isAlt: boolean
     targetTag: string
     requestedBy: string | null
-    existingPlayer: Player
     targetUser: User
+    existingPlayers: { allyCode: string; alt: number }[]
   }) {
-    const primaryAllyCode =
-      normalizeAllyCode(existingPlayer.allyCode) ?? allyCode
-    const altAllyCodes = sanitizeAllyCodeList(existingPlayer.altAllyCodes)
     const requesterNote = this.formatRequesterNote(requestedBy)
 
-    if (isAlt) {
-      if (primaryAllyCode === allyCode) {
-        return interaction.reply({
-          content: "This ally code is already the primary one.",
-        })
-      }
+    // Check if ally code is already registered
+    const alreadyRegistered = existingPlayers.some(
+      (p) => p.allyCode === allyCode,
+    )
 
-      if (altAllyCodes.includes(allyCode)) {
+    if (alreadyRegistered) {
+      const existingPlayer = existingPlayers.find((p) => p.allyCode === allyCode)
+      if (existingPlayer?.alt === 1) {
+        return interaction.reply({
+          content: "This ally code is already registered as primary.",
+        })
+      } else {
         return interaction.reply({
           content: "This ally code is already registered as an alternate.",
         })
       }
+    }
 
-      const saveResult = await this.playerOps.addUser({
-        discordUser: targetUser,
-        allyCode: primaryAllyCode,
-        altAllyCodes: [...altAllyCodes, allyCode],
-      })
+    if (isAlt) {
+      // Add as new alt
+      const saveResult = await this.container.playerClient.registerAllyCode(
+        targetUser.id,
+        allyCode,
+        false, // isPrimary = false
+      )
 
       if (!saveResult) {
         return interaction.reply({
@@ -183,17 +182,12 @@ export class RegisterPlayerCommand extends Command {
       })
     }
 
-    if (primaryAllyCode === allyCode) {
-      return interaction.reply({
-        content: "This ally code is already registered as primary.",
-      })
-    }
-
-    const saveResult = await this.playerOps.addUser({
-      discordUser: targetUser,
+    // Replace primary (isAlt = false)
+    const saveResult = await this.container.playerClient.registerAllyCode(
+      targetUser.id,
       allyCode,
-      altAllyCodes,
-    })
+      true, // isPrimary = true
+    )
 
     if (!saveResult) {
       return interaction.reply({

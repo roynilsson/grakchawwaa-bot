@@ -434,7 +434,7 @@ describe("TicketSummaryCommand", () => {
     it("should return success with valid guild registration", async () => {
       mockedContainer.playerClient.getPlayer.mockResolvedValue({
         allyCode: "123456789",
-        altAllyCodes: [],
+        alt: 1,
       })
       mockedContainer.cachedComlinkClient.getPlayer.mockResolvedValue({
         guildId: "guild123",

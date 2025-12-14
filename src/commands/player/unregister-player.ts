@@ -1,15 +1,12 @@
 import { Command } from "@sapphire/framework"
 import { userMention } from "discord.js"
-import { PlayerOperationsCommand } from "./player-operations"
+import { normalizeAllyCode } from "../../utils/ally-code"
 
 export class UnregisterPlayerCommand extends Command {
-  private playerOps: PlayerOperationsCommand
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.playerOps = new PlayerOperationsCommand(context, options)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -31,14 +28,21 @@ export class UnregisterPlayerCommand extends Command {
   public override async chatInputRun(
     interaction: Command.ChatInputCommandInteraction,
   ) {
-    const allyCode = interaction.options.getString("ally-code")
+    const allyCodeInput = interaction.options.getString("ally-code")
+    const userCallerToMention = userMention(interaction.user.id)
 
-    if (allyCode) {
-      const saveResult = await this.playerOps.removeAllyCode({
-        allyCode: allyCode,
-        altAllyCodes: [],
-        discordUser: interaction.user,
-      })
+    if (allyCodeInput) {
+      // Unregister specific ally code
+      const normalizedAllyCode = normalizeAllyCode(allyCodeInput)
+
+      if (!normalizedAllyCode) {
+        return interaction.reply({
+          content: "Please provide a valid ally code (123-456-789).",
+        })
+      }
+
+      const saveResult =
+        await this.container.playerClient.removeAllyCode(normalizedAllyCode)
 
       if (!saveResult) {
         return interaction.reply({
@@ -46,17 +50,15 @@ export class UnregisterPlayerCommand extends Command {
         })
       }
 
-      const userCallerToMention = userMention(interaction.user.id)
-
       return interaction.reply({
-        content: `Unregistered player with ally code: ${allyCode} for ${userCallerToMention}`,
+        content: `Unregistered ally code: ${normalizedAllyCode} for ${userCallerToMention}`,
       })
     }
-    const saveResult = await this.playerOps.removePlayer({
-      discordUser: interaction.user,
-      allyCode: "",
-      altAllyCodes: [],
-    })
+
+    // Unregister all ally codes for this user
+    const saveResult = await this.container.playerClient.removeAllForDiscordId(
+      interaction.user.id,
+    )
 
     if (!saveResult) {
       return interaction.reply({
@@ -64,7 +66,6 @@ export class UnregisterPlayerCommand extends Command {
       })
     }
 
-    const userCallerToMention = userMention(interaction.user.id)
     return interaction.reply({
       content: `Unregistered player ${userCallerToMention} and all associated ally codes`,
     })

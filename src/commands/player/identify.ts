@@ -1,16 +1,12 @@
 import { Command } from "@sapphire/framework"
 import { userMention } from "discord.js"
-import { PlayerOperationsCommand } from "./player-operations"
 import { formatAllyCode } from "../../utils/ally-code"
 
 export class IdentifyCommand extends Command {
-  private playerOps: PlayerOperationsCommand
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.playerOps = new PlayerOperationsCommand(context, options)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -28,18 +24,23 @@ export class IdentifyCommand extends Command {
   ) {
     const userId = interaction.user.id
 
-    const user = await this.playerOps.getPlayer(userId)
-    if (!user) {
+    const players = await this.container.playerClient.getPlayersByDiscordId(userId)
+
+    if (players.length === 0) {
       return interaction.reply({
         content: "Failed to identify player",
       })
     }
 
     const userCallerToMention = userMention(interaction.user.id)
-    const primaryAllyCode = formatAllyCode(user.allyCode)
-    const altAllyCodes = (user.altAllyCodes ?? [])
-      .filter((code) => Boolean(code?.trim()))
-      .map((code) => formatAllyCode(code))
+
+    // First player (alt=1) is primary
+    const primaryPlayer = players.find((p) => p.alt === 1) ?? players[0]
+    const primaryAllyCode = formatAllyCode(primaryPlayer!.allyCode)
+
+    // Rest are alts (alt > 1)
+    const altPlayers = players.filter((p) => p.alt > 1)
+    const altAllyCodes = altPlayers.map((p) => formatAllyCode(p.allyCode))
 
     const altSummary =
       altAllyCodes.length > 0 ? altAllyCodes.join(", ") : "None registered"
