@@ -125,6 +125,56 @@ PGDATABASE=grakchawwaa_dev
 - `pnpm docker:setup` - Start database and run setup scripts
 - `pnpm docker:reset` - Reset database (removes all data) and re-run setup
 
+### Database Migrations
+
+This project uses [node-pg-migrate](https://github.com/salsita/node-pg-migrate) for database schema management.
+
+**Migration Commands:**
+
+```bash
+# Apply pending migrations (development)
+pnpm migrate:up
+
+# Rollback last migration (development)
+pnpm migrate:down
+
+# Create a new migration file
+pnpm migrate:create migration-name
+
+# Apply migrations (production)
+pnpm migrate:up:prod
+
+# Rollback migrations (production)
+pnpm migrate:down:prod
+```
+
+**Creating a New Migration:**
+
+```bash
+# Generate a new migration file
+pnpm migrate:create add-new-feature
+
+# Edit the generated file in migrations/ directory
+# Implement the up() and down() functions
+# Run the migration
+pnpm migrate:up
+```
+
+**Migration Best Practices:**
+- Always test migrations locally before deploying
+- Include both `up` (apply) and `down` (rollback) functions
+- Make migrations idempotent when possible
+- Never modify existing migration files that have been applied
+- Use descriptive migration names
+
+**Migration Status:**
+
+To check which migrations have been applied, query the `pgmigrations` table:
+
+```bash
+docker compose exec postgres psql -U grakchawwaa -d grakchawwaa_dev -c "SELECT * FROM pgmigrations;"
+```
+
 **Querying the Database:**
 
 To query the database directly, you can use `psql` inside the Docker container:
