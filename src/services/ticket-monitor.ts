@@ -73,10 +73,18 @@ export class TicketMonitorService {
       const now = Date.now()
 
       for (const guild of guilds) {
+        // Skip guilds without required config
+        if (!guild.next_ticket_collection_refresh_time || !guild.ticket_collection_channel_id) {
+          continue
+        }
+
+        // Assign to const to satisfy TypeScript null checks
+        const ticketCollectionChannelId = guild.ticket_collection_channel_id
+        const nextRefreshTime = guild.next_ticket_collection_refresh_time
+
         // Parse the next refresh time
-        const refreshTime =
-          parseInt(guild.next_ticket_collection_refresh_time) * 1000 // Convert to milliseconds
-        const refreshTimeKey = `${guild.guild_id}:${guild.next_ticket_collection_refresh_time}`
+        const refreshTime = parseInt(nextRefreshTime) * 1000 // Convert to milliseconds
+        const refreshTimeKey = `${guild.guild_id}:${nextRefreshTime}`
 
         // In dev mode with forceCheck, process regardless of timing
         if (this.isDevMode) {
@@ -98,13 +106,13 @@ export class TicketMonitorService {
           // Process ticket data collection
           await this.collectTicketData(
             guild.guild_id,
-            guild.ticket_collection_channel_id,
+            ticketCollectionChannelId,
           )
 
           // Also force run post-refresh operations and summaries
           await this.handlePostRefreshOperations(
             guild.guild_id,
-            guild.ticket_collection_channel_id,
+            ticketCollectionChannelId,
             true,
           )
 
@@ -142,7 +150,7 @@ export class TicketMonitorService {
           // It's time to check ticket counts
           await this.collectTicketData(
             guild.guild_id,
-            guild.ticket_collection_channel_id,
+            ticketCollectionChannelId,
           )
         }
 
@@ -153,7 +161,7 @@ export class TicketMonitorService {
           // After updating the refresh time, the old key will no longer match
           await this.handlePostRefreshOperations(
             guild.guild_id,
-            guild.ticket_collection_channel_id,
+            ticketCollectionChannelId,
           )
 
           this.processedRefreshTimes.delete(refreshTimeKey)

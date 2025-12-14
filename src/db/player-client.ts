@@ -126,11 +126,13 @@ export class PlayerPGClient {
   /**
    * Register a new ally code for a Discord user
    * @param isPrimary If true, replaces existing primary (alt=1). If false, adds as new alt.
+   * @param playerData Optional player data from Comlink (player_id, player_name, guild_id)
    */
   public async registerAllyCode(
     discordId: string,
     allyCode: string,
     isPrimary: boolean,
+    playerData?: { playerId?: string; playerName?: string; guildId?: string },
   ): Promise<boolean> {
     if (!discordId || !allyCode) {
       console.error("Invalid discord ID or ally code")
@@ -145,9 +147,9 @@ export class PlayerPGClient {
         ])
 
         await this.query(
-          `INSERT INTO players (ally_code, discord_id, alt, registered_at)
-           VALUES ($1, $2, 1, CURRENT_TIMESTAMP)`,
-          [allyCode, discordId],
+          `INSERT INTO players (ally_code, discord_id, alt, player_id, player_name, guild_id, registered_at)
+           VALUES ($1, $2, 1, $3, $4, $5, CURRENT_TIMESTAMP)`,
+          [allyCode, discordId, playerData?.playerId, playerData?.playerName, playerData?.guildId],
         )
       } else {
         // Add as new alt: find next alt number
@@ -159,9 +161,9 @@ export class PlayerPGClient {
         const nextAlt = (maxAltResult.rows[0]?.max_alt ?? 0) + 1
 
         await this.query(
-          `INSERT INTO players (ally_code, discord_id, alt, registered_at)
-           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-          [allyCode, discordId, nextAlt],
+          `INSERT INTO players (ally_code, discord_id, alt, player_id, player_name, guild_id, registered_at)
+           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+          [allyCode, discordId, nextAlt, playerData?.playerId, playerData?.playerName, playerData?.guildId],
         )
       }
 

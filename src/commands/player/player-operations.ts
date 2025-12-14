@@ -22,11 +22,11 @@ export class PlayerOperationsCommand extends Command {
 
   public async removeAllyCode(player: DiscordPlayer): Promise<boolean> {
     const client = this.container.playerClient
-    return client.removeAllyCode(player)
+    return client.removeAllyCode(player.allyCode)
   }
 
   public async removePlayer(player: DiscordPlayer): Promise<boolean> {
     const client = this.container.playerClient
-    return client.removePlayer(player)
+    return client.removeAllForDiscordId(player.discordUser.id)
   }
 }

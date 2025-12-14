@@ -1,6 +1,7 @@
 import { Command } from "@sapphire/framework"
 import { User, userMention } from "discord.js"
 import { normalizeAllyCode } from "../../utils/ally-code"
+import { CachedComlinkClient } from "../../services/comlink/cached-comlink-client"
 
 export class RegisterPlayerCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -101,10 +102,42 @@ export class RegisterPlayerCommand extends Command {
     targetTag: string
     requestedBy: string | null
   }) {
+    // Fetch player data from Comlink
+    const comlinkClient = CachedComlinkClient.getInstance()
+    let playerData: { playerId?: string; playerName?: string; guildId?: string } | undefined
+
+    try {
+      const comlinkPlayer = await comlinkClient.getPlayer(allyCode)
+      if (comlinkPlayer) {
+        // Check if player is in a guild
+        if (!comlinkPlayer.guildId) {
+          return interaction.reply({
+            content: "This player is not in a guild. Only players in guilds can be registered.",
+          })
+        }
+
+        // Ensure guild exists in guilds table
+        await this.container.guildClient.ensureGuildExists(
+          comlinkPlayer.guildId,
+          comlinkPlayer.guildName,
+        )
+
+        playerData = {
+          playerId: comlinkPlayer.playerId,
+          playerName: comlinkPlayer.name,
+          guildId: comlinkPlayer.guildId,
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching player data from Comlink:", error)
+      // Continue without player data - it's optional
+    }
+
     const saveResult = await this.container.playerClient.registerAllyCode(
       targetUser.id,
       allyCode,
       true, // isPrimary
+      playerData,
     )
 
     if (!saveResult) {
@@ -161,12 +194,44 @@ export class RegisterPlayerCommand extends Command {
       }
     }
 
+    // Fetch player data from Comlink
+    const comlinkClient = CachedComlinkClient.getInstance()
+    let playerData: { playerId?: string; playerName?: string; guildId?: string } | undefined
+
+    try {
+      const comlinkPlayer = await comlinkClient.getPlayer(allyCode)
+      if (comlinkPlayer) {
+        // Check if player is in a guild
+        if (!comlinkPlayer.guildId) {
+          return interaction.reply({
+            content: "This player is not in a guild. Only players in guilds can be registered.",
+          })
+        }
+
+        // Ensure guild exists in guilds table
+        await this.container.guildClient.ensureGuildExists(
+          comlinkPlayer.guildId,
+          comlinkPlayer.guildName,
+        )
+
+        playerData = {
+          playerId: comlinkPlayer.playerId,
+          playerName: comlinkPlayer.name,
+          guildId: comlinkPlayer.guildId,
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching player data from Comlink:", error)
+      // Continue without player data - it's optional
+    }
+
     if (isAlt) {
       // Add as new alt
       const saveResult = await this.container.playerClient.registerAllyCode(
         targetUser.id,
         allyCode,
         false, // isPrimary = false
+        playerData,
       )
 
       if (!saveResult) {
@@ -187,6 +252,7 @@ export class RegisterPlayerCommand extends Command {
       targetUser.id,
       allyCode,
       true, // isPrimary = true
+      playerData,
     )
 
     if (!saveResult) {
