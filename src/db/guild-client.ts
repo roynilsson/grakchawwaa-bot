@@ -1,4 +1,5 @@
 import { Pool, QueryResult, QueryResultRow } from "pg"
+import { Guild } from "../model/guild"
 
 interface GuildRow extends QueryResultRow {
   guild_id: string
@@ -6,14 +7,6 @@ interface GuildRow extends QueryResultRow {
   discord_server_id: string | null
   created_at: Date
   updated_at: Date
-}
-
-export interface Guild {
-  guildId: string
-  guildName?: string
-  discordServerId?: string
-  createdAt: Date
-  updatedAt: Date
 }
 
 export class GuildPGClient {
