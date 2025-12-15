@@ -1,6 +1,7 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
 import { PermissionFlagsBits } from "discord.js"
+import { GUILD_CONFIG_KEYS } from "../../model/guild-config-keys"
 
 export class UnregisterTicketCollectionCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -80,22 +81,21 @@ export class UnregisterTicketCollectionCommand extends Command {
       }
 
       // Check if the guild is registered for monitoring
-      const monitoringData =
-        await container.guildConfigClient.getGuildMessageChannels(
-          comlinkGuild.guild.profile.id,
-        )
-      if (!monitoringData) {
+      const ticketChannel = await container.guildConfigClient.getConfig(
+        comlinkGuild.guild.profile.id,
+        GUILD_CONFIG_KEYS.TICKET_COLLECTION_CHANNEL_ID,
+      )
+      if (!ticketChannel) {
         return interaction.editReply({
           content:
             "This guild is not registered for ticket collection monitoring.",
         })
       }
 
-      // Unregister the guild
-      const success =
-        await container.guildConfigClient.unregisterTicketCollectionChannel(
-          comlinkPlayer.guildId,
-        )
+      // Unregister the guild - delete all configs
+      const success = await container.guildConfigClient.deleteAllConfigs(
+        comlinkPlayer.guildId,
+      )
       if (!success) {
         return interaction.editReply({
           content: "Failed to unregister guild. Please try again later.",

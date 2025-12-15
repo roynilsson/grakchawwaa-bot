@@ -1,6 +1,7 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
 import { PermissionFlagsBits } from "discord.js"
+import { GUILD_CONFIG_KEYS } from "../../model/guild-config-keys"
 
 export class UnregisterAnniversaryChannelCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -81,11 +82,11 @@ export class UnregisterAnniversaryChannelCommand extends Command {
       }
 
       // Check if the guild is registered for anniversary notifications
-      const guildChannels =
-        await container.guildConfigClient.getGuildMessageChannels(
-          comlinkGuild.guild.profile.id,
-        )
-      if (!guildChannels || !guildChannels.anniversary_channel_id) {
+      const anniversaryChannel = await container.guildConfigClient.getConfig(
+        comlinkGuild.guild.profile.id,
+        GUILD_CONFIG_KEYS.ANNIVERSARY_CHANNEL_ID,
+      )
+      if (!anniversaryChannel) {
         return interaction.editReply({
           content:
             "This guild is not registered for anniversary notifications.",
@@ -93,10 +94,10 @@ export class UnregisterAnniversaryChannelCommand extends Command {
       }
 
       // Unregister the guild
-      const success =
-        await container.guildConfigClient.unregisterAnniversaryChannel(
-          comlinkPlayer.guildId,
-        )
+      const success = await container.guildConfigClient.deleteConfig(
+        comlinkPlayer.guildId,
+        GUILD_CONFIG_KEYS.ANNIVERSARY_CHANNEL_ID,
+      )
       if (!success) {
         return interaction.editReply({
           content: "Failed to unregister guild. Please try again later.",

@@ -1,6 +1,7 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
 import { channelMention, TextChannel } from "discord.js"
+import { GUILD_CONFIG_KEYS } from "../../model/guild-config-keys"
 
 // Types for Comlink data
 interface ComlinkGuildMember {
@@ -291,15 +292,33 @@ export class RegisterTicketCollectionCommand extends Command {
     channelId: string,
     reminderChannelId: string | null,
   ): Promise<CommandResponse> {
-    const success =
-      await container.guildConfigClient.registerTicketCollectionChannel(
-        guildData.guildId,
-        channelId,
-        guildData.nextRefreshTime,
-        reminderChannelId ?? null,
-      )
+    // Ensure guild exists
+    await container.guildClient.ensureGuildExists(guildData.guildId, guildData.guildName)
 
-    if (!success) {
+    // Set ticket collection channel
+    const ticketChannelSuccess = await container.guildConfigClient.setConfig(
+      guildData.guildId,
+      GUILD_CONFIG_KEYS.TICKET_COLLECTION_CHANNEL_ID,
+      channelId,
+    )
+
+    // Set next refresh time
+    const refreshTimeSuccess = await container.guildConfigClient.setConfig(
+      guildData.guildId,
+      GUILD_CONFIG_KEYS.NEXT_TICKET_COLLECTION_REFRESH_TIME,
+      guildData.nextRefreshTime,
+    )
+
+    // Set reminder channel if provided
+    if (reminderChannelId) {
+      await container.guildConfigClient.setConfig(
+        guildData.guildId,
+        GUILD_CONFIG_KEYS.TICKET_REMINDER_CHANNEL_ID,
+        reminderChannelId,
+      )
+    }
+
+    if (!ticketChannelSuccess || !refreshTimeSuccess) {
       return {
         success: false,
         response: {

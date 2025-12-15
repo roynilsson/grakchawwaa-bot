@@ -1,6 +1,7 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
 import { channelMention, TextChannel } from "discord.js"
+import { GUILD_CONFIG_KEYS } from "../../model/guild-config-keys"
 
 interface CommandResponse<T = undefined> {
   success: boolean
@@ -242,11 +243,11 @@ export class RegisterAnniversaryChannelCommand extends Command {
     guildId: string,
     channelId: string,
   ): Promise<CommandResponse> {
-    const success =
-      await container.guildConfigClient.registerAnniversaryChannel(
-        guildId,
-        channelId,
-      )
+    const success = await container.guildConfigClient.setConfig(
+      guildId,
+      GUILD_CONFIG_KEYS.ANNIVERSARY_CHANNEL_ID,
+      channelId,
+    )
 
     if (!success) {
       return {

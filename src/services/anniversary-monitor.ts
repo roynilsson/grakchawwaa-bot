@@ -2,6 +2,7 @@ import { container } from "@sapphire/pieces"
 import { ComlinkGuildData, ComlinkGuildMember } from "@swgoh-utils/comlink"
 import { TextChannel } from "discord.js"
 import { DiscordBotClient } from "../discord-bot-client"
+import { GUILD_CONFIG_KEYS } from "../model/guild-config-keys"
 
 interface MemberAnniversary {
   id: string
@@ -88,17 +89,23 @@ export class AnniversaryMonitorService {
       this.lastRunDate = new Date()
 
       // Get all registered guilds
-      const guilds = await container.guildConfigClient.getAllGuilds()
+      const guildIds = await container.guildConfigClient.getAllGuildIds()
 
-      for (const guild of guilds) {
+      for (const guildId of guildIds) {
+        // Get anniversary channel config
+        const anniversaryChannelId = await container.guildConfigClient.getConfig(
+          guildId,
+          GUILD_CONFIG_KEYS.ANNIVERSARY_CHANNEL_ID,
+        )
+
         // Only process guilds that have an anniversary channel configured
-        if (!guild.anniversary_channel_id) {
+        if (!anniversaryChannelId) {
           continue
         }
 
         await this.processGuildAnniversaries(
-          guild.guild_id,
-          guild.anniversary_channel_id,
+          guildId,
+          anniversaryChannelId,
         )
       }
     } catch (error) {

@@ -3,6 +3,7 @@ import { container } from "@sapphire/pieces"
 import { ChannelType } from "discord.js"
 import { DiscordBotClient } from "../../discord-bot-client"
 import { ViolationSummaryService } from "../../services/violation-summary"
+import { GUILD_CONFIG_KEYS } from "../../model/guild-config-keys"
 
 export class TicketSummaryCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -134,12 +135,12 @@ export class TicketSummaryCommand extends Command {
     }
 
     // Check if the player's SW guild is registered for ticket collection
-    const guildSettings =
-      await container.guildConfigClient.getGuildMessageChannels(
-        playerData.guildId,
-      )
+    const ticketChannel = await container.guildConfigClient.getConfig(
+      playerData.guildId,
+      GUILD_CONFIG_KEYS.TICKET_COLLECTION_CHANNEL_ID,
+    )
 
-    if (!guildSettings?.ticket_collection_channel_id) {
+    if (!ticketChannel) {
       return {
         success: false,
         response: {

@@ -1,237 +1,149 @@
 import { BasePGClient } from "./base-pg-client"
 import { QueryResultRow } from "pg"
 
-interface TicketChannelRow extends QueryResultRow {
-  guild_id: string
-  ticket_collection_channel_id: string | null
-  next_ticket_collection_refresh_time: string | null
-  ticket_reminder_channel_id: string | null
-  anniversary_channel_id: string | null
-}
-
 interface GuildConfigRow extends QueryResultRow {
   guild_id: string
   name: string
   value: string
 }
 
-const CONFIG_KEYS = {
-  TICKET_COLLECTION_CHANNEL: "ticket_collection_channel_id",
-  NEXT_REFRESH_TIME: "next_ticket_collection_refresh_time",
-  TICKET_REMINDER_CHANNEL: "ticket_reminder_channel_id",
-  ANNIVERSARY_CHANNEL: "anniversary_channel_id",
-} as const
-
+/**
+ * Generic guild configuration client
+ * Manages key-value pairs in the guild_configs table
+ */
 export class GuildConfigPGClient extends BasePGClient {
-
-  private async setConfig(
+  /**
+   * Set a configuration value for a guild
+   * Creates or updates the config key-value pair
+   */
+  public async setConfig(
     guildId: string,
     key: string,
     value: string,
-  ): Promise<void> {
-    await this.query(
-      `INSERT INTO guild_configs (guild_id, name, value)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (guild_id, name) DO UPDATE
-       SET value = EXCLUDED.value`,
-      [guildId, key, value],
-    )
-  }
-
-  private async deleteConfig(guildId: string, key: string): Promise<void> {
-    await this.query(
-      `DELETE FROM guild_configs WHERE guild_id = $1 AND name = $2`,
-      [guildId, key],
-    )
-  }
-
-  private async getGuildConfigs(guildId: string): Promise<Map<string, string>> {
-    const result = await this.query<GuildConfigRow>(
-      `SELECT name, value FROM guild_configs WHERE guild_id = $1`,
-      [guildId],
-    )
-
-    const configMap = new Map<string, string>()
-    for (const row of result.rows) {
-      configMap.set(row.name, row.value)
-    }
-    return configMap
-  }
-
-  public async registerTicketCollectionChannel(
-    guildId: string,
-    channelId: string,
-    nextRefreshTime: string,
-    reminderChannelId?: string | null,
   ): Promise<boolean> {
-    if (!guildId || !channelId || !nextRefreshTime) {
-      console.error("Invalid guild, channel ID, or refresh time")
+    if (!guildId || !key || !value) {
+      console.error("Invalid guild ID, key, or value")
       return false
     }
 
     try {
-      // Ensure guild exists in guilds table
       await this.query(
-        `INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING`,
-        [guildId],
+        `INSERT INTO guild_configs (guild_id, name, value)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (guild_id, name) DO UPDATE
+         SET value = EXCLUDED.value`,
+        [guildId, key, value],
       )
-
-      // Set ticket collection channel
-      await this.setConfig(
-        guildId,
-        CONFIG_KEYS.TICKET_COLLECTION_CHANNEL,
-        channelId,
-      )
-
-      // Set next refresh time
-      await this.setConfig(
-        guildId,
-        CONFIG_KEYS.NEXT_REFRESH_TIME,
-        nextRefreshTime,
-      )
-
-      // Set reminder channel if provided, otherwise preserve existing value
-      if (reminderChannelId) {
-        await this.setConfig(
-          guildId,
-          CONFIG_KEYS.TICKET_REMINDER_CHANNEL,
-          reminderChannelId,
-        )
-      }
-
       return true
     } catch (error) {
-      console.error("Error registering ticket collection channel:", error)
+      console.error(`Error setting config ${key} for guild ${guildId}:`, error)
       return false
     }
   }
 
-  public async registerAnniversaryChannel(
-    guildId: string,
-    channelId: string,
-  ): Promise<boolean> {
-    if (!guildId || !channelId) {
-      console.error("Invalid guild or channel ID")
-      return false
-    }
-
-    try {
-      // Ensure guild exists
-      await this.query(
-        `INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING`,
-        [guildId],
-      )
-
-      await this.setConfig(guildId, CONFIG_KEYS.ANNIVERSARY_CHANNEL, channelId)
-      return true
-    } catch (error) {
-      console.error("Error registering anniversary channel:", error)
-      return false
-    }
-  }
-
-  public async unregisterAnniversaryChannel(guildId: string): Promise<boolean> {
-    if (!guildId) {
-      console.error("Invalid guild ID")
-      return false
-    }
-
-    try {
-      await this.deleteConfig(guildId, CONFIG_KEYS.ANNIVERSARY_CHANNEL)
-      return true
-    } catch (error) {
-      console.error("Error unregistering anniversary channel:", error)
-      return false
-    }
-  }
-
-  public async getAllGuilds(): Promise<TicketChannelRow[]> {
-    try {
-      // Get all unique guild IDs from guild_configs
-      const guildsResult = await this.query<{ guild_id: string }>(
-        `SELECT DISTINCT guild_id FROM guild_configs`,
-      )
-
-      const guilds: TicketChannelRow[] = []
-      for (const row of guildsResult.rows) {
-        const config = await this.getGuildConfigs(row.guild_id)
-        guilds.push({
-          guild_id: row.guild_id,
-          ticket_collection_channel_id:
-            config.get(CONFIG_KEYS.TICKET_COLLECTION_CHANNEL) || null,
-          next_ticket_collection_refresh_time:
-            config.get(CONFIG_KEYS.NEXT_REFRESH_TIME) || null,
-          ticket_reminder_channel_id:
-            config.get(CONFIG_KEYS.TICKET_REMINDER_CHANNEL) || null,
-          anniversary_channel_id:
-            config.get(CONFIG_KEYS.ANNIVERSARY_CHANNEL) || null,
-        })
-      }
-
-      return guilds
-    } catch (error) {
-      console.error("Error getting all guild ticket collections:", error)
-      return []
-    }
-  }
-
-  public async getGuildMessageChannels(
-    guildId: string,
-  ): Promise<TicketChannelRow | null> {
-    if (!guildId) {
-      console.error("Invalid guild ID")
+  /**
+   * Get a configuration value for a guild
+   * Returns null if the config key doesn't exist
+   */
+  public async getConfig(guildId: string, key: string): Promise<string | null> {
+    if (!guildId || !key) {
+      console.error("Invalid guild ID or key")
       return null
     }
 
     try {
-      const config = await this.getGuildConfigs(guildId)
+      const result = await this.query<GuildConfigRow>(
+        `SELECT value FROM guild_configs WHERE guild_id = $1 AND name = $2`,
+        [guildId, key],
+      )
 
-      // If no config exists, return null
-      if (config.size === 0) {
-        return null
-      }
-
-      return {
-        guild_id: guildId,
-        ticket_collection_channel_id:
-          config.get(CONFIG_KEYS.TICKET_COLLECTION_CHANNEL) || null,
-        next_ticket_collection_refresh_time:
-          config.get(CONFIG_KEYS.NEXT_REFRESH_TIME) || null,
-        ticket_reminder_channel_id:
-          config.get(CONFIG_KEYS.TICKET_REMINDER_CHANNEL) || null,
-        anniversary_channel_id:
-          config.get(CONFIG_KEYS.ANNIVERSARY_CHANNEL) || null,
-      }
+      return result.rows[0]?.value ?? null
     } catch (error) {
-      console.error("Error getting guild message channels:", error)
+      console.error(`Error getting config ${key} for guild ${guildId}:`, error)
       return null
     }
   }
 
-  public async unregisterTicketCollectionChannel(
-    guildId: string,
-  ): Promise<boolean> {
+  /**
+   * Get all configuration key-value pairs for a guild
+   * Returns a Map of config key -> value
+   */
+  public async getAllConfigs(guildId: string): Promise<Map<string, string>> {
+    if (!guildId) {
+      console.error("Invalid guild ID")
+      return new Map()
+    }
+
+    try {
+      const result = await this.query<GuildConfigRow>(
+        `SELECT name, value FROM guild_configs WHERE guild_id = $1`,
+        [guildId],
+      )
+
+      const configMap = new Map<string, string>()
+      for (const row of result.rows) {
+        configMap.set(row.name, row.value)
+      }
+      return configMap
+    } catch (error) {
+      console.error(`Error getting all configs for guild ${guildId}:`, error)
+      return new Map()
+    }
+  }
+
+  /**
+   * Delete a specific configuration key for a guild
+   */
+  public async deleteConfig(guildId: string, key: string): Promise<boolean> {
+    if (!guildId || !key) {
+      console.error("Invalid guild ID or key")
+      return false
+    }
+
+    try {
+      await this.query(
+        `DELETE FROM guild_configs WHERE guild_id = $1 AND name = $2`,
+        [guildId, key],
+      )
+      return true
+    } catch (error) {
+      console.error(`Error deleting config ${key} for guild ${guildId}:`, error)
+      return false
+    }
+  }
+
+  /**
+   * Delete all configuration keys for a guild
+   */
+  public async deleteAllConfigs(guildId: string): Promise<boolean> {
     if (!guildId) {
       console.error("Invalid guild ID")
       return false
     }
 
     try {
-      // Delete all configs for this guild
       await this.query(`DELETE FROM guild_configs WHERE guild_id = $1`, [
         guildId,
       ])
-      // Also delete from guilds table if no configs remain
-      await this.query(
-        `DELETE FROM guilds
-         WHERE guild_id = $1
-         AND NOT EXISTS (SELECT 1 FROM guild_configs WHERE guild_id = $1)`,
-        [guildId],
-      )
       return true
     } catch (error) {
-      console.error("Error unregistering ticket collection channel:", error)
+      console.error(`Error deleting all configs for guild ${guildId}:`, error)
       return false
+    }
+  }
+
+  /**
+   * Get all guild IDs that have at least one config
+   */
+  public async getAllGuildIds(): Promise<string[]> {
+    try {
+      const result = await this.query<{ guild_id: string }>(
+        `SELECT DISTINCT guild_id FROM guild_configs ORDER BY guild_id`,
+      )
+      return result.rows.map((row) => row.guild_id)
+    } catch (error) {
+      console.error("Error getting all guild IDs:", error)
+      return []
     }
   }
 }
