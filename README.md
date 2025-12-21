@@ -28,8 +28,10 @@ Discord bot for Star Wars: Galaxy of Heroes guild management.
 - `/register-player` - Register a player with an ally code
 
   - `ally-code` - Ally code to register (required)
+  - `is-alt` - Register as alt account instead of main (optional, default: false)
 
 - `/unregister-player` - Remove a player registration
+  - `ally-code` - Ally code to remove (required)
 
 - `/identify` - Display information about a registered player
 
@@ -178,9 +180,11 @@ SELECT * FROM players;
 
 -- Check table structure
 \d players
+\d guilds
+\d guild_members
 
 -- Query with specific columns
-SELECT discord_id, ally_code, registered_at FROM players;
+SELECT discord_id, ally_code, is_main, registered_at FROM players;
 ```
 
 Useful psql commands:
