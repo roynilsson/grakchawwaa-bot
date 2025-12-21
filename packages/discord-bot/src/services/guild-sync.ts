@@ -88,8 +88,7 @@ export class GuildSyncService {
       if (dbGuild && guildData.guild.profile?.name) {
         const newName = guildData.guild.profile.name
         if (dbGuild.name !== newName) {
-          dbGuild.name = newName
-          await container.guildRepository.getEntityManager().flush()
+          await container.guildService.updateGuildName(guildId, newName)
           console.log(`Updated guild name: ${newName}`)
         }
       }
@@ -120,24 +119,21 @@ export class GuildSyncService {
           }
 
           // Upsert player into database
-          const result = await container.playerRepository.upsertFromComlink(
+          const existing = await container.playerRepository.findOne({
+            allyCode,
+          })
+          const isNew = !existing
+
+          await container.playerService.upsertPlayerFromComlink(
             allyCode,
             member.playerName,
             member.playerId,
           )
 
-          if (result) {
-            const existing = await container.playerRepository.findOne({
-              allyCode,
-            })
-            if (
-              existing?.registeredAt &&
-              new Date().getTime() - existing.registeredAt.getTime() < 5000
-            ) {
-              playersCreated++
-            } else {
-              playersUpdated++
-            }
+          if (isNew) {
+            playersCreated++
+          } else {
+            playersUpdated++
           }
 
           // Store for guild member sync
@@ -157,7 +153,7 @@ export class GuildSyncService {
       // Sync guild members: add/remove/reactivate
       const comlinkMembers = memberDataList
 
-      const memberStats = await container.guildMemberRepository.syncMembers(
+      const memberStats = await container.guildMemberService.syncMembers(
         guildId,
         comlinkMembers,
       )

@@ -48,16 +48,16 @@ export class UnregisterPlayerCommand extends Command {
       })
     }
 
-    const saveResult = await this.playerOps.removeAllPlayers(interaction.user.id)
+    const count = await this.playerOps.removeAllPlayers(interaction.user.id)
 
-    if (!saveResult) {
+    if (count === 0) {
       return interaction.reply({
         content: "Failed to unregister players. No players found.",
       })
     }
 
     return interaction.reply({
-      content: `Unregistered all ally codes for ${userCallerToMention}`,
+      content: `Unregistered ${count} ally code${count > 1 ? "s" : ""} for ${userCallerToMention}`,
     })
   }
 }

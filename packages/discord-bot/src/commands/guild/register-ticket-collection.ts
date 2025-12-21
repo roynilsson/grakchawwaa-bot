@@ -201,7 +201,7 @@ export class RegisterTicketCollectionCommand extends Command {
     const allyCode = inputAllyCode?.replace(/-/g, "") ?? null
 
     if (!allyCode) {
-      const player = await container.playerRepository.getMainPlayer(
+      const player = await container.playerService.getMainPlayer(
         interaction.user.id,
       )
       if (!player?.allyCode) {
@@ -293,8 +293,8 @@ export class RegisterTicketCollectionCommand extends Command {
     channelId: string,
     reminderChannelId: string | null,
   ): Promise<CommandResponse> {
-    const success =
-      await container.guildRepository.registerTicketCollectionChannel(
+    try {
+      await container.guildService.registerTicketCollectionChannel(
         guildData.guildId,
         channelId,
         guildData.nextRefreshTime,
@@ -302,7 +302,8 @@ export class RegisterTicketCollectionCommand extends Command {
         guildData.guildName,
       )
 
-    if (!success) {
+      return { success: true, response: { content: "" } }
+    } catch (error) {
       return {
         success: false,
         response: {
@@ -311,8 +312,6 @@ export class RegisterTicketCollectionCommand extends Command {
         },
       }
     }
-
-    return { success: true, response: { content: "" } }
   }
 
   private formatSuccessMessage(

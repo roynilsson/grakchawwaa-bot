@@ -40,7 +40,7 @@ export class GetGuildMembersCommand extends Command {
       const nameFilter = interaction.options.getString("name")?.toLowerCase()
 
       // Get the player data to find their guild
-      const player = await container.playerRepository.getMainPlayer(
+      const player = await container.playerService.getMainPlayer(
         interaction.user.id,
       )
       if (!player?.allyCode) {

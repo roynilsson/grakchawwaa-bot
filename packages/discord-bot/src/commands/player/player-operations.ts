@@ -11,49 +11,48 @@ export class PlayerOperationsCommand extends Command {
   }
 
   public async getMainPlayer(userId: string): Promise<Player | null> {
-    const repository = this.container.playerRepository
-    return repository.getMainPlayer(userId)
+    return this.container.playerService.getMainPlayer(userId)
   }
 
   public async getAllPlayers(userId: string): Promise<Player[]> {
-    const repository = this.container.playerRepository
-    return repository.getAllPlayers(userId)
+    return this.container.playerService.getAllPlayers(userId)
   }
 
   public async addUser(
     discordUserId: string,
     allyCode: string,
     isMain: boolean = false,
-  ): Promise<{ success: boolean; error?: string }> {
-    const repository = this.container.playerRepository
-
+  ): Promise<void> {
     // Fetch player data from Comlink to get name and player ID
+    let name: string | undefined
+    let playerId: string | undefined
+
     try {
       const playerData = await this.container.comlinkClient.getPlayer(allyCode)
       if (playerData) {
-        return repository.addUser(
-          discordUserId,
-          allyCode,
-          isMain,
-          playerData.name,
-          playerData.playerId,
-        )
+        name = playerData.name
+        playerId = playerData.playerId
       }
     } catch (error) {
       console.warn("Failed to fetch player data from Comlink:", error)
-      // Fall back to adding without name/playerId
+      // Continue without name/playerId
     }
 
-    return repository.addUser(discordUserId, allyCode, isMain)
+    // Service will throw error if registration fails
+    await this.container.playerService.registerPlayer(
+      discordUserId,
+      allyCode,
+      isMain,
+      name,
+      playerId,
+    )
   }
 
   public async removeAllyCode(allyCode: string): Promise<boolean> {
-    const repository = this.container.playerRepository
-    return repository.removeAllyCode(allyCode)
+    return this.container.playerService.unregisterPlayer(allyCode)
   }
 
-  public async removeAllPlayers(discordUserId: string): Promise<boolean> {
-    const repository = this.container.playerRepository
-    return repository.removeAllPlayers(discordUserId)
+  public async removeAllPlayers(discordUserId: string): Promise<number> {
+    return this.container.playerService.unregisterAllPlayers(discordUserId)
   }
 }

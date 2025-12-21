@@ -83,29 +83,27 @@ export class RegisterPlayerCommand extends Command {
       })
     }
 
-    const saveResult = await this.playerOps.addUser(
-      targetUser.id,
-      normalizedAllyCode,
-      isMain,
-    )
+    try {
+      await this.playerOps.addUser(targetUser.id, normalizedAllyCode, isMain)
 
-    if (!saveResult.success) {
+      const accountType = isMain ? "main" : "alt"
+      const baseMessage =
+        `Registered ${accountType} ally code: ${normalizedAllyCode} ` +
+        `for ${targetTag}`
+      const replyMessage = `${baseMessage}${this.formatRequesterNote(
+        requestedBy,
+      )}.`
+
       return interaction.reply({
-        content: saveResult.error || "Failed to save player",
+        content: replyMessage,
+      })
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to save player"
+      return interaction.reply({
+        content: errorMessage,
       })
     }
-
-    const accountType = isMain ? "main" : "alt"
-    const baseMessage =
-      `Registered ${accountType} ally code: ${normalizedAllyCode} ` +
-      `for ${targetTag}`
-    const replyMessage = `${baseMessage}${this.formatRequesterNote(
-      requestedBy,
-    )}.`
-
-    return interaction.reply({
-      content: replyMessage,
-    })
   }
 
   private formatRequesterNote(requestedBy: string | null): string {

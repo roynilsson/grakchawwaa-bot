@@ -30,7 +30,7 @@ export class UnregisterAnniversaryChannelCommand extends Command {
 
     try {
       // Get player's ally code
-      const playerData = await container.playerRepository.getMainPlayer(
+      const playerData = await container.playerService.getMainPlayer(
         interaction.user.id,
       )
       if (!playerData) {
@@ -82,7 +82,7 @@ export class UnregisterAnniversaryChannelCommand extends Command {
 
       // Check if the guild is registered for anniversary notifications
       const guildChannels =
-        await container.guildRepository.getGuild(
+        await container.guildService.getGuild(
           comlinkGuild.guild.profile.id,
         )
       if (!guildChannels || !guildChannels.anniversaryChannelId) {
@@ -94,7 +94,7 @@ export class UnregisterAnniversaryChannelCommand extends Command {
 
       // Unregister the guild
       const success =
-        await container.guildRepository.unregisterAnniversaryChannel(
+        await container.guildService.unregisterAnniversaryChannel(
           comlinkPlayer.guildId,
         )
       if (!success) {

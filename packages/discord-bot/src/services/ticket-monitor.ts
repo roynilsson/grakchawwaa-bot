@@ -69,7 +69,7 @@ export class TicketMonitorService {
   private async checkGuildResetTimes(): Promise<void> {
     try {
       // Get all registered guilds
-      const guilds = await container.guildRepository.getAllGuilds()
+      const guilds = await container.guildService.getAllGuilds()
       const now = Date.now()
 
       for (const guild of guilds) {
@@ -310,7 +310,7 @@ export class TicketMonitorService {
     newRefreshTime: string,
   ): Promise<void> {
     try {
-      await container.guildRepository.registerTicketCollectionChannel(
+      await container.guildService.registerTicketCollectionChannel(
         guildId,
         channelId,
         newRefreshTime,
@@ -425,7 +425,7 @@ export class TicketMonitorService {
     }
 
     const discordId =
-      await container.playerRepository.findDiscordIdByAllyCode(allyCode)
+      await container.playerService.findDiscordIdByAllyCode(allyCode)
     this.allyCodeDiscordCache.set(allyCode, discordId)
     return discordId
   }
