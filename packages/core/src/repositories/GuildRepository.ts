@@ -16,9 +16,12 @@ export class GuildRepository extends EntityRepository<Guild> {
     try {
       let guild = await this.findOne({ id: guildId })
 
+      // Convert Unix timestamp (seconds) to Date
+      const refreshDate = new Date(parseInt(nextRefreshTime) * 1000)
+
       if (guild) {
         guild.ticketCollectionChannelId = channelId
-        guild.nextTicketCollectionRefreshTime = nextRefreshTime
+        guild.nextTicketCollectionRefreshTime = refreshDate
         if (reminderChannelId !== undefined) {
           guild.ticketReminderChannelId = reminderChannelId ?? undefined
         }
@@ -26,7 +29,7 @@ export class GuildRepository extends EntityRepository<Guild> {
         guild = this.create({
           id: guildId,
           ticketCollectionChannelId: channelId,
-          nextTicketCollectionRefreshTime: nextRefreshTime,
+          nextTicketCollectionRefreshTime: refreshDate,
           ticketReminderChannelId: reminderChannelId ?? undefined,
         })
         this.getEntityManager().persist(guild)

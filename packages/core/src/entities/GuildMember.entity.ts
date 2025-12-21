@@ -7,10 +7,10 @@ import { GuildMemberRepository } from "../repositories/GuildMemberRepository"
 })
 @Index({ properties: ["isActive"] })
 export class GuildMember {
-  @PrimaryKey({ fieldName: "guild_id" })
+  @PrimaryKey({ fieldName: "guild_id", length: 24 })
   guildId!: string
 
-  @PrimaryKey({ fieldName: "ally_code" })
+  @PrimaryKey({ fieldName: "ally_code", length: 9 })
   allyCode!: string
 
   @Property({ fieldName: "joined_at" })

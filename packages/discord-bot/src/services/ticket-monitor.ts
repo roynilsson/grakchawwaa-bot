@@ -81,10 +81,9 @@ export class TicketMonitorService {
           continue
         }
 
-        // Parse the next refresh time
-        const refreshTime =
-          parseInt(guild.nextTicketCollectionRefreshTime) * 1000 // Convert to milliseconds
-        const refreshTimeKey = `${guild.id}:${guild.nextTicketCollectionRefreshTime}`
+        // Get the next refresh time
+        const refreshTime = guild.nextTicketCollectionRefreshTime.getTime()
+        const refreshTimeKey = `${guild.id}:${refreshTime}`
 
         // In dev mode with forceCheck, process regardless of timing
         if (this.isDevMode) {
