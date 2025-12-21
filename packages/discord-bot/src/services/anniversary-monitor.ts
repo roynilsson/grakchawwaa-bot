@@ -88,7 +88,7 @@ export class AnniversaryMonitorService {
       this.lastRunDate = new Date()
 
       // Get all registered guilds
-      const guilds = await container.guildMessageChannelsRepository.getAllGuilds()
+      const guilds = await container.guildRepository.getAllGuilds()
 
       for (const guild of guilds) {
         // Only process guilds that have an anniversary channel configured
@@ -97,7 +97,7 @@ export class AnniversaryMonitorService {
         }
 
         await this.processGuildAnniversaries(
-          guild.guildId,
+          guild.id,
           guild.anniversaryChannelId,
         )
       }

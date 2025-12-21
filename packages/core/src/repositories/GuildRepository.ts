@@ -1,7 +1,7 @@
 import { EntityRepository } from "@mikro-orm/postgresql"
-import { GuildMessageChannels } from "../entities/GuildMessageChannels.entity"
+import { Guild } from "../entities/Guild.entity"
 
-export class GuildMessageChannelsRepository extends EntityRepository<GuildMessageChannels> {
+export class GuildRepository extends EntityRepository<Guild> {
   async registerTicketCollectionChannel(
     guildId: string,
     channelId: string,
@@ -14,7 +14,7 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
 
     try {
-      let guild = await this.findOne({ guildId })
+      let guild = await this.findOne({ id: guildId })
 
       if (guild) {
         guild.ticketCollectionChannelId = channelId
@@ -24,7 +24,7 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
         }
       } else {
         guild = this.create({
-          guildId,
+          id: guildId,
           ticketCollectionChannelId: channelId,
           nextTicketCollectionRefreshTime: nextRefreshTime,
           ticketReminderChannelId: reminderChannelId ?? undefined,
@@ -50,13 +50,13 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
 
     try {
-      let guild = await this.findOne({ guildId })
+      let guild = await this.findOne({ id: guildId })
 
       if (guild) {
         guild.anniversaryChannelId = channelId
       } else {
         guild = this.create({
-          guildId,
+          id: guildId,
           anniversaryChannelId: channelId,
         })
         this.getEntityManager().persist(guild)
@@ -77,7 +77,7 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
 
     try {
-      const guild = await this.findOne({ guildId })
+      const guild = await this.findOne({ id: guildId })
 
       if (!guild) {
         return false
@@ -93,7 +93,7 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
   }
 
-  async getAllGuilds(): Promise<GuildMessageChannels[]> {
+  async getAllGuilds(): Promise<Guild[]> {
     try {
       return await this.findAll()
     } catch (error) {
@@ -102,16 +102,16 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
   }
 
-  async getGuildMessageChannels(
+  async getGuild(
     guildId: string,
-  ): Promise<GuildMessageChannels | null> {
+  ): Promise<Guild | null> {
     if (!guildId) {
       console.error("Invalid guild ID")
       return null
     }
 
     try {
-      return await this.findOne({ guildId })
+      return await this.findOne({ id: guildId })
     } catch (error) {
       console.error("Error getting guild message channels:", error)
       return null
@@ -125,7 +125,7 @@ export class GuildMessageChannelsRepository extends EntityRepository<GuildMessag
     }
 
     try {
-      const guild = await this.findOne({ guildId })
+      const guild = await this.findOne({ id: guildId })
 
       if (!guild) {
         return false

@@ -294,7 +294,7 @@ export class RegisterTicketCollectionCommand extends Command {
     reminderChannelId: string | null,
   ): Promise<CommandResponse> {
     const success =
-      await container.guildMessageChannelsRepository.registerTicketCollectionChannel(
+      await container.guildRepository.registerTicketCollectionChannel(
         guildData.guildId,
         channelId,
         guildData.nextRefreshTime,

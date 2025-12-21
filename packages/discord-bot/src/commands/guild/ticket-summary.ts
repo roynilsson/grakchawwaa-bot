@@ -135,7 +135,7 @@ export class TicketSummaryCommand extends Command {
 
     // Check if the player's SW guild is registered for ticket collection
     const guildSettings =
-      await container.guildMessageChannelsRepository.getGuildMessageChannels(
+      await container.guildRepository.getGuild(
         playerData.guildId,
       )
 

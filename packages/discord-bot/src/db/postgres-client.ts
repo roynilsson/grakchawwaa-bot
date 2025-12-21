@@ -2,8 +2,8 @@ import { MikroORM } from "@mikro-orm/core"
 import { PostgreSqlDriver } from "@mikro-orm/postgresql"
 import { container } from "@sapphire/pieces"
 import {
-  GuildMessageChannels,
-  GuildMessageChannelsRepository,
+  Guild,
+  GuildRepository,
   Player,
   PlayerRepository,
   TicketViolation,
@@ -15,7 +15,7 @@ declare module "@sapphire/pieces" {
   interface Container {
     orm: MikroORM<PostgreSqlDriver>
     playerRepository: PlayerRepository
-    guildMessageChannelsRepository: GuildMessageChannelsRepository
+    guildRepository: GuildRepository
     ticketViolationRepository: TicketViolationRepository
   }
 }
@@ -25,6 +25,6 @@ export const setupPostgresClients = (): void => {
   const orm = getORM()
   const em = orm.em.fork()
   container.playerRepository = em.getRepository(Player)
-  container.guildMessageChannelsRepository = em.getRepository(GuildMessageChannels)
+  container.guildRepository = em.getRepository(Guild)
   container.ticketViolationRepository = em.getRepository(TicketViolation)
 }

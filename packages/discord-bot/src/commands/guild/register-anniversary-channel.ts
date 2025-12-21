@@ -245,7 +245,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
     channelId: string,
   ): Promise<CommandResponse> {
     const success =
-      await container.guildMessageChannelsRepository.registerAnniversaryChannel(
+      await container.guildRepository.registerAnniversaryChannel(
         guildId,
         channelId,
       )

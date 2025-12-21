@@ -1,13 +1,16 @@
 import { Entity, PrimaryKey, Property } from "@mikro-orm/core"
-import { GuildMessageChannelsRepository } from "../repositories/GuildMessageChannelsRepository"
+import { GuildRepository } from "../repositories/GuildRepository"
 
 @Entity({
-  tableName: "guildMessageChannels",
-  repository: () => GuildMessageChannelsRepository,
+  tableName: "guilds",
+  repository: () => GuildRepository,
 })
-export class GuildMessageChannels {
-  @PrimaryKey({ fieldName: "guild_id" })
-  guildId!: string
+export class Guild {
+  @PrimaryKey({ fieldName: "id" })
+  id!: string
+
+  @Property({ fieldName: "name", nullable: true })
+  name?: string
 
   @Property({
     fieldName: "ticket_collection_channel_id",
