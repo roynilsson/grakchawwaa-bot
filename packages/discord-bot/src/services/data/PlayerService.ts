@@ -138,4 +138,12 @@ export class PlayerService {
     const player = await this.playerRepository.findOne({ allyCode })
     return player?.discordId ?? null
   }
+
+  /**
+   * Find ally code by player ID
+   */
+  async findAllyCodeByPlayerId(playerId: string): Promise<string | null> {
+    const player = await this.playerRepository.findOne({ playerId })
+    return player?.allyCode ?? null
+  }
 }

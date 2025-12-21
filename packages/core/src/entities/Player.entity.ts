@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property } from "@mikro-orm/core"
+import { Entity, Index, PrimaryKey, PrimaryKeyProp, Property } from "@mikro-orm/core"
 import { PlayerRepository } from "../repositories/PlayerRepository"
 
 @Entity({ tableName: "players", repository: () => PlayerRepository })
@@ -6,6 +6,8 @@ import { PlayerRepository } from "../repositories/PlayerRepository"
 export class Player {
   @PrimaryKey({ fieldName: "ally_code", length: 9 })
   allyCode!: string
+
+  [PrimaryKeyProp]?: "allyCode"
 
   @Property({ fieldName: "discord_id", nullable: true })
   discordId?: string

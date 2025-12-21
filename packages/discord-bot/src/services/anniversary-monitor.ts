@@ -1,13 +1,13 @@
 import { container } from "@sapphire/pieces"
-import { ComlinkGuildData, ComlinkGuildMember } from "@swgoh-utils/comlink"
 import { TextChannel } from "discord.js"
 import { DiscordBotClient } from "../discord-bot-client"
+import { GuildMember } from "@grakchawwaa/core"
 
 interface MemberAnniversary {
-  id: string
+  allyCode: string
   name: string
   years: number
-  joinTime: number
+  joinTime: Date
 }
 
 export class AnniversaryMonitorService {
@@ -113,15 +113,26 @@ export class AnniversaryMonitorService {
     try {
       console.log(`Processing anniversaries for guild ${guildId}`)
 
-      const guildData = await this.fetchGuildData(guildId)
-      if (!guildData) return
+      // Get guild info from database
+      const guild = await container.guildService.getGuild(guildId)
+      if (!guild) {
+        console.error(`Guild ${guildId} not found in database`)
+        return
+      }
 
-      const anniversaries = this.findAnniversaries(guildData.guild.member || [])
+      // Get active members from database
+      const members = await container.guildMemberService.getActiveMembers(guildId)
+      if (members.length === 0) {
+        console.log(`No active members found for guild ${guildId}`)
+        return
+      }
+
+      const anniversaries = this.findAnniversaries(members)
 
       if (anniversaries.length > 0) {
         await this.sendAnniversaryMessages(
           channelId,
-          guildData.guild.profile.name,
+          guild.name || "Unknown Guild",
           anniversaries,
         )
       } else {
@@ -135,51 +146,16 @@ export class AnniversaryMonitorService {
     }
   }
 
-  private async fetchGuildData(
-    guildId: string,
-  ): Promise<ComlinkGuildData | null> {
-    const guildData = await container.cachedComlinkClient.getGuild(
-      guildId,
-      true,
-    )
-    if (!guildData?.guild?.member) {
-      console.error(`No member data found for guild ${guildId}`)
-      return null
-    }
-
-    guildData.guild.member.push({
-      id: "123",
-      playerId: "123",
-      name: "Test Player",
-      playerName: "Test Player",
-      allyCode: "123456789",
-      guildId: guildId,
-      playerLevel: 85,
-      memberLevel: 1,
-      lastActivityTime: "1684650758",
-      squadPower: 1000,
-      guildJoinTime: "1684650758",
-      galacticPower: "1000",
-      playerTitle: "Test Title",
-      playerPortrait: "Test Portrait",
-      leagueId: "123",
-      memberContribution: [],
-    })
-    return guildData
-  }
-
   private findAnniversaries(
-    members: ComlinkGuildMember[],
+    members: GuildMember[],
   ): MemberAnniversary[] {
     const anniversaries: MemberAnniversary[] = []
     const today = new Date()
 
     for (const member of members) {
-      if (!member.guildJoinTime) continue
+      if (!member.joinedAt) continue
 
-      // Convert guild join timestamp (which is in seconds) to a Date object
-      const joinDate = new Date(0) // Start with epoch
-      joinDate.setUTCSeconds(parseInt(member.guildJoinTime))
+      const joinDate = member.joinedAt
 
       // Check if today is the anniversary of the join date
       const isAnniversary =
@@ -193,10 +169,10 @@ export class AnniversaryMonitorService {
         // Only celebrate full years (1 year or more)
         if (yearsJoined >= 1) {
           anniversaries.push({
-            id: member.playerId,
-            name: member.playerName,
+            allyCode: member.player.unwrap().allyCode,
+            name: member.player.unwrap().name || "Unknown Player",
             years: yearsJoined,
-            joinTime: parseInt(member.guildJoinTime),
+            joinTime: joinDate,
           })
         }
       }
@@ -248,12 +224,8 @@ export class AnniversaryMonitorService {
 
       // Add each member to the message
       sortedAnniversaries.forEach((anniversary) => {
-        // Create date from timestamp (seconds)
-        const joinDate = new Date(0)
-        joinDate.setUTCSeconds(anniversary.joinTime)
-
         // Format the date in a readable way
-        const formattedDate = joinDate.toISOString().slice(0, 10)
+        const formattedDate = anniversary.joinTime.toISOString().slice(0, 10)
         const yearsSinceJoining = `${anniversary.years} year${anniversary.years === 1 ? "" : "s"} ago`
 
         const emoji = this.getAnniversaryEmoji(anniversary.years)

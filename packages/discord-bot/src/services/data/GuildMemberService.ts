@@ -30,7 +30,7 @@ export class GuildMemberService {
     }
 
     // Check if member already exists
-    let member = await this.guildMemberRepository.findOne({ guildId, allyCode })
+    let member = await this.guildMemberRepository.findOne({ guild: guildId, player: allyCode })
 
     if (member) {
       // Reactivate if previously left
@@ -48,14 +48,13 @@ export class GuildMemberService {
         member.joinedAt = joinedAt
       }
     } else {
-      // Create new member
-      member = this.guildMemberRepository.create({
-        guildId,
-        allyCode,
+      // Create new member - provide primary key values directly
+      member = this.em.create(GuildMember, {
+        guild: guildId,
+        player: allyCode,
         joinedAt: joinedAt || new Date(),
         isActive: true,
       })
-      this.em.persist(member)
     }
 
     await this.em.flush()
@@ -70,8 +69,8 @@ export class GuildMemberService {
     }
 
     const member = await this.guildMemberRepository.findOne({
-      guildId,
-      allyCode,
+      guild: guildId,
+      player: allyCode,
     })
     if (!member) {
       return false
@@ -86,14 +85,17 @@ export class GuildMemberService {
   }
 
   /**
-   * Get all active members of a guild
+   * Get all active members of a guild with player data populated
    */
   async getActiveMembers(guildId: string): Promise<GuildMember[]> {
     if (!guildId) {
       throw new Error("Invalid guild ID")
     }
 
-    return this.guildMemberRepository.find({ guildId, isActive: true })
+    return this.guildMemberRepository.find(
+      { guild: guildId, isActive: true },
+      { populate: ["player"] },
+    )
   }
 
   /**
@@ -104,7 +106,7 @@ export class GuildMemberService {
       throw new Error("Invalid guild ID")
     }
 
-    return this.guildMemberRepository.find({ guildId })
+    return this.guildMemberRepository.find({ guild: guildId })
   }
 
   /**
@@ -115,7 +117,7 @@ export class GuildMemberService {
       throw new Error("Invalid ally code")
     }
 
-    return this.guildMemberRepository.find({ allyCode })
+    return this.guildMemberRepository.find({ player: allyCode })
   }
 
   /**
@@ -127,8 +129,8 @@ export class GuildMemberService {
     }
 
     const member = await this.guildMemberRepository.findOne({
-      guildId,
-      allyCode,
+      guild: guildId,
+      player: allyCode,
       isActive: true,
     })
     return member !== null
@@ -150,9 +152,14 @@ export class GuildMemberService {
     let removed = 0
     let reactivated = 0
 
-    // Get all current members (active and inactive)
-    const existingMembers = await this.guildMemberRepository.find({ guildId })
-    const existingMap = new Map(existingMembers.map((m) => [m.allyCode, m]))
+    // Get all current members (active and inactive) with player data
+    const existingMembers = await this.guildMemberRepository.find(
+      { guild: guildId },
+      { populate: ["player"] },
+    )
+    const existingMap = new Map(
+      existingMembers.map((m) => [m.player.unwrap().allyCode, m]),
+    )
 
     // Track which ally codes are in Comlink data
     const comlinkAllyCodes = new Set(comlinkMembers.map((m) => m.allyCode))
@@ -162,14 +169,13 @@ export class GuildMemberService {
       const existing = existingMap.get(comlinkMember.allyCode)
 
       if (!existing) {
-        // New member - create
-        const member = this.guildMemberRepository.create({
-          guildId,
-          allyCode: comlinkMember.allyCode,
+        // New member - provide primary key values directly
+        const member = this.em.create(GuildMember, {
+          guild: guildId,
+          player: comlinkMember.allyCode,
           joinedAt: comlinkMember.joinedAt,
           isActive: true,
         })
-        this.em.persist(member)
         added++
       } else if (!existing.isActive) {
         // Previously left, now returned - reactivate
@@ -185,7 +191,10 @@ export class GuildMemberService {
 
     // Soft delete members who are no longer in guild
     for (const existing of existingMembers) {
-      if (existing.isActive && !comlinkAllyCodes.has(existing.allyCode)) {
+      if (
+        existing.isActive &&
+        !comlinkAllyCodes.has(existing.player.unwrap().allyCode)
+      ) {
         existing.isActive = false
         existing.leftAt = new Date()
         removed++
