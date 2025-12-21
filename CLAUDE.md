@@ -170,21 +170,26 @@ The project uses a **pnpm workspace** to share code between multiple application
 
 ### TicketMonitorService
 - Runs periodic checks (every 6 hours)
-- Fetches guild data from Comlink API
+- Fetches live ticket data from Comlink API
+- Reads player/guild names from database for display
 - Identifies ticket violations
 - Posts summaries to Discord
 
 ### AnniversaryMonitorService
-- Checks for player guild anniversaries
+- Checks for player guild anniversaries from database
+- Reads member join dates from guild_members table
 - Posts celebration messages
 
 ### ViolationSummaryService
 - Formats violation reports
+- Reads guild and player names from database
 - Handles "Show Full List" button interactions
 
 ### ComlinkService
 - Interfaces with SWGOH Comlink API for game data
 - Caches player/guild data to reduce API calls
+- Services read cached player/guild names from database instead of repeatedly fetching from API
+- Only fetches live data when necessary (e.g., ticket contributions)
 
 ## Database Schema
 
@@ -441,6 +446,14 @@ The bot uses Sapphire's command structure:
 
 ## Recent Changes (from git log)
 
+- ⚡ **Optimize Comlink API usage** (2025-12-21)
+  - Refactor services to read player/guild names from database instead of API
+  - Anniversary monitor now reads member join dates from guild_members table
+  - Violation summary reads names from database
+  - Ticket monitor reads names from database (still fetches live ticket data)
+  - Add PlayerService.findAllyCodeByPlayerId() method
+  - Fix GuildMember entity to use MikroORM composite primary key pattern (Use-Case 3)
+  - Remove redundant session caches from TicketMonitor
 - 🔧 **Database schema refactoring** (2025-12-21)
   - Rename GuildMessageChannels entity to Guild
   - Restructure Player entity to use ally code as primary key
