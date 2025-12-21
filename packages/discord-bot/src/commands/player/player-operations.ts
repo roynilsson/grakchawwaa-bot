@@ -24,7 +24,7 @@ export class PlayerOperationsCommand extends Command {
     discordUserId: string,
     allyCode: string,
     isMain: boolean = false,
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
     const repository = this.container.playerRepository
 
     // Fetch player data from Comlink to get name and player ID

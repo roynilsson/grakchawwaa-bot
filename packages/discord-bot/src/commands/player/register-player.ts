@@ -89,9 +89,9 @@ export class RegisterPlayerCommand extends Command {
       isMain,
     )
 
-    if (!saveResult) {
+    if (!saveResult.success) {
       return interaction.reply({
-        content: "Failed to save player",
+        content: saveResult.error || "Failed to save player",
       })
     }
 

@@ -9,16 +9,16 @@ export class PlayerRepository extends EntityRepository<Player> {
     isMain: boolean = false,
     name?: string,
     playerId?: string,
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
     if (!discordId || !allyCode) {
       console.error("Invalid player data")
-      return false
+      return { success: false, error: "Invalid player data" }
     }
 
     const normalized = normalizeAllyCode(allyCode)
     if (!normalized) {
       console.error("Invalid ally code")
-      return false
+      return { success: false, error: "Invalid ally code" }
     }
 
     console.log("Adding user", discordId, normalized, "isMain:", isMain)
@@ -27,7 +27,15 @@ export class PlayerRepository extends EntityRepository<Player> {
       // Check if player with this ally code already exists
       const existing = await this.findOne({ allyCode: normalized })
       if (existing) {
-        // Update existing player
+        // If player already has a discord_id and it's different, reject
+        if (existing.discordId && existing.discordId !== discordId) {
+          return {
+            success: false,
+            error: "This ally code is already registered to another Discord user. Please unregister it first.",
+          }
+        }
+
+        // If discord_id is null or matches, update the player
         existing.discordId = discordId
         existing.isMain = isMain
         if (name) existing.name = name
@@ -46,10 +54,10 @@ export class PlayerRepository extends EntityRepository<Player> {
       }
 
       await this.getEntityManager().flush()
-      return true
+      return { success: true }
     } catch (error) {
       console.error("Error adding user:", error)
-      return false
+      return { success: false, error: "Database error" }
     }
   }
 
@@ -99,7 +107,12 @@ export class PlayerRepository extends EntityRepository<Player> {
         return false
       }
 
-      await this.getEntityManager().removeAndFlush(player)
+      // Clear discord_id instead of deleting the row
+      // This preserves the player data for guild sync
+      player.discordId = undefined
+      player.isMain = false
+
+      await this.getEntityManager().flush()
       return true
     } catch (error) {
       console.error("Error removing ally code:", error)
@@ -119,7 +132,13 @@ export class PlayerRepository extends EntityRepository<Player> {
         return false
       }
 
-      await this.getEntityManager().removeAndFlush(players)
+      // Clear discord_id from all players instead of deleting
+      for (const player of players) {
+        player.discordId = undefined
+        player.isMain = false
+      }
+
+      await this.getEntityManager().flush()
       return true
     } catch (error) {
       console.error("Error removing all players:", error)
@@ -139,6 +158,53 @@ export class PlayerRepository extends EntityRepository<Player> {
     } catch (error) {
       console.error("Error finding discord id by ally code:", error)
       return null
+    }
+  }
+
+  /**
+   * Create or update a player from Comlink data
+   * Used by guild sync to ensure all guild members exist in the players table
+   */
+  async upsertFromComlink(
+    allyCode: string,
+    name: string,
+    playerId: string,
+  ): Promise<boolean> {
+    const normalized = normalizeAllyCode(allyCode)
+    if (!normalized) {
+      console.error("Invalid ally code")
+      return false
+    }
+
+    try {
+      const existing = await this.findOne({ allyCode: normalized })
+
+      if (existing) {
+        // Update name and playerId if they've changed
+        if (name && existing.name !== name) {
+          existing.name = name
+        }
+        if (playerId && existing.playerId !== playerId) {
+          existing.playerId = playerId
+        }
+      } else {
+        // Create new player without discord_id (unregistered)
+        const player = this.create({
+          allyCode: normalized,
+          discordId: undefined,
+          name,
+          playerId,
+          isMain: false,
+          registeredAt: new Date(),
+        })
+        this.getEntityManager().persist(player)
+      }
+
+      await this.getEntityManager().flush()
+      return true
+    } catch (error) {
+      console.error("Error upserting player from Comlink:", error)
+      return false
     }
   }
 }
