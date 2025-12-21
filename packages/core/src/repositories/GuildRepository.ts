@@ -7,6 +7,7 @@ export class GuildRepository extends EntityRepository<Guild> {
     channelId: string,
     nextRefreshTime: string,
     reminderChannelId?: string | null,
+    guildName?: string,
   ): Promise<boolean> {
     if (!guildId || !channelId || !nextRefreshTime) {
       console.error("Invalid guild, channel ID, or refresh time")
@@ -22,12 +23,14 @@ export class GuildRepository extends EntityRepository<Guild> {
       if (guild) {
         guild.ticketCollectionChannelId = channelId
         guild.nextTicketCollectionRefreshTime = refreshDate
+        if (guildName) guild.name = guildName
         if (reminderChannelId !== undefined) {
           guild.ticketReminderChannelId = reminderChannelId ?? undefined
         }
       } else {
         guild = this.create({
           id: guildId,
+          name: guildName,
           ticketCollectionChannelId: channelId,
           nextTicketCollectionRefreshTime: refreshDate,
           ticketReminderChannelId: reminderChannelId ?? undefined,
@@ -46,6 +49,7 @@ export class GuildRepository extends EntityRepository<Guild> {
   async registerAnniversaryChannel(
     guildId: string,
     channelId: string,
+    guildName?: string,
   ): Promise<boolean> {
     if (!guildId || !channelId) {
       console.error("Invalid guild or channel ID")
@@ -57,9 +61,11 @@ export class GuildRepository extends EntityRepository<Guild> {
 
       if (guild) {
         guild.anniversaryChannelId = channelId
+        if (guildName) guild.name = guildName
       } else {
         guild = this.create({
           id: guildId,
+          name: guildName,
           anniversaryChannelId: channelId,
         })
         this.getEntityManager().persist(guild)

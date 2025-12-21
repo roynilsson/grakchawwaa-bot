@@ -26,6 +26,24 @@ export class PlayerOperationsCommand extends Command {
     isMain: boolean = false,
   ): Promise<boolean> {
     const repository = this.container.playerRepository
+
+    // Fetch player data from Comlink to get name and player ID
+    try {
+      const playerData = await this.container.comlinkClient.getPlayer(allyCode)
+      if (playerData) {
+        return repository.addUser(
+          discordUserId,
+          allyCode,
+          isMain,
+          playerData.name,
+          playerData.playerId,
+        )
+      }
+    } catch (error) {
+      console.warn("Failed to fetch player data from Comlink:", error)
+      // Fall back to adding without name/playerId
+    }
+
     return repository.addUser(discordUserId, allyCode, isMain)
   }
 

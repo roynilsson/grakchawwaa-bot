@@ -10,6 +10,9 @@ export class Player {
   @Property({ fieldName: "discord_id" })
   discordId!: string
 
+  @Property({ fieldName: "player_id", length: 50, nullable: true })
+  playerId?: string
+
   @Property({ fieldName: "name", nullable: true })
   name?: string
 

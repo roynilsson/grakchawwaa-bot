@@ -3,7 +3,13 @@ import { Player } from "../entities/Player.entity"
 import { normalizeAllyCode } from "../utils/ally-code"
 
 export class PlayerRepository extends EntityRepository<Player> {
-  async addUser(discordId: string, allyCode: string, isMain: boolean = false): Promise<boolean> {
+  async addUser(
+    discordId: string,
+    allyCode: string,
+    isMain: boolean = false,
+    name?: string,
+    playerId?: string,
+  ): Promise<boolean> {
     if (!discordId || !allyCode) {
       console.error("Invalid player data")
       return false
@@ -24,12 +30,16 @@ export class PlayerRepository extends EntityRepository<Player> {
         // Update existing player
         existing.discordId = discordId
         existing.isMain = isMain
+        if (name) existing.name = name
+        if (playerId) existing.playerId = playerId
       } else {
         // Create new player
         const player = this.create({
           allyCode: normalized,
           discordId,
           isMain,
+          name,
+          playerId,
           registeredAt: new Date(),
         })
         this.getEntityManager().persist(player)

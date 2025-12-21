@@ -93,6 +93,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
       const registration = await this.registerGuildChannel(
         guildData.value.guildId,
         channel.value.id,
+        guildData.value.guildName,
       )
       if (!registration.success) {
         return await interaction.editReply(registration.response)
@@ -243,11 +244,13 @@ export class RegisterAnniversaryChannelCommand extends Command {
   private async registerGuildChannel(
     guildId: string,
     channelId: string,
+    guildName: string,
   ): Promise<CommandResponse> {
     const success =
       await container.guildRepository.registerAnniversaryChannel(
         guildId,
         channelId,
+        guildName,
       )
 
     if (!success) {

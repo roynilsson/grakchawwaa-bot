@@ -299,6 +299,7 @@ export class RegisterTicketCollectionCommand extends Command {
         channelId,
         guildData.nextRefreshTime,
         reminderChannelId ?? null,
+        guildData.guildName,
       )
 
     if (!success) {
