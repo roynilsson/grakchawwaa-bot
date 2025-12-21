@@ -109,7 +109,7 @@ export class TicketSummaryCommand extends Command {
     guildName?: string
   }> {
     // Get the player's ally code
-    const player = await container.playerRepository.getPlayer(interaction.user.id)
+    const player = await container.playerRepository.getMainPlayer(interaction.user.id)
     if (!player?.allyCode) {
       return {
         success: false,

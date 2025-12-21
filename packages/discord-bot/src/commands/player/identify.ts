@@ -28,28 +28,32 @@ export class IdentifyCommand extends Command {
   ) {
     const userId = interaction.user.id
 
-    const user = await this.playerOps.getPlayer(userId)
-    if (!user) {
+    const players = await this.playerOps.getAllPlayers(userId)
+    if (players.length === 0) {
       return interaction.reply({
-        content: "Failed to identify player",
+        content: "No registered players found. Please register with `/register-player` first.",
       })
     }
 
     const userCallerToMention = userMention(interaction.user.id)
-    const primaryAllyCode = formatAllyCode(user.allyCode)
-    const altAllyCodes = (user.altAllyCodes ?? [])
-      .filter((code) => Boolean(code?.trim()))
-      .map((code) => formatAllyCode(code))
+    const mainPlayer = players.find(p => p.isMain)
+    const altPlayers = players.filter(p => !p.isMain)
 
-    const altSummary =
-      altAllyCodes.length > 0 ? altAllyCodes.join(", ") : "None registered"
+    const lines = [`Identified players for ${userCallerToMention}`]
+
+    if (mainPlayer) {
+      lines.push(`Main ally code: ${formatAllyCode(mainPlayer.allyCode)}`)
+    }
+
+    if (altPlayers.length > 0) {
+      const altCodes = altPlayers.map(p => formatAllyCode(p.allyCode)).join(", ")
+      lines.push(`Alt ally codes: ${altCodes}`)
+    } else {
+      lines.push(`Alt ally codes: None registered`)
+    }
 
     return interaction.reply({
-      content: [
-        `Identified player for ${userCallerToMention}`,
-        `Primary ally code: ${primaryAllyCode}`,
-        `Alt ally codes: ${altSummary}`,
-      ].join("\n"),
+      content: lines.join("\n"),
     })
   }
 

@@ -10,30 +10,32 @@ export class PlayerOperationsCommand extends Command {
     })
   }
 
-  public async getPlayer(userId: string): Promise<Player | null> {
+  public async getMainPlayer(userId: string): Promise<Player | null> {
     const repository = this.container.playerRepository
-    return repository.getPlayer(userId)
+    return repository.getMainPlayer(userId)
+  }
+
+  public async getAllPlayers(userId: string): Promise<Player[]> {
+    const repository = this.container.playerRepository
+    return repository.getAllPlayers(userId)
   }
 
   public async addUser(
     discordUserId: string,
     allyCode: string,
-    altAllyCodes?: string[],
+    isMain: boolean = false,
   ): Promise<boolean> {
     const repository = this.container.playerRepository
-    return repository.addUser(discordUserId, allyCode, altAllyCodes)
+    return repository.addUser(discordUserId, allyCode, isMain)
   }
 
-  public async removeAllyCode(
-    discordUserId: string,
-    allyCode: string,
-  ): Promise<boolean> {
+  public async removeAllyCode(allyCode: string): Promise<boolean> {
     const repository = this.container.playerRepository
-    return repository.removeAllyCode(discordUserId, allyCode)
+    return repository.removeAllyCode(allyCode)
   }
 
-  public async removePlayer(discordUserId: string): Promise<boolean> {
+  public async removeAllPlayers(discordUserId: string): Promise<boolean> {
     const repository = this.container.playerRepository
-    return repository.removePlayer(discordUserId)
+    return repository.removeAllPlayers(discordUserId)
   }
 }

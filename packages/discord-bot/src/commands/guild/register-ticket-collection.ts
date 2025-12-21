@@ -201,7 +201,7 @@ export class RegisterTicketCollectionCommand extends Command {
     const allyCode = inputAllyCode?.replace(/-/g, "") ?? null
 
     if (!allyCode) {
-      const player = await container.playerRepository.getPlayer(
+      const player = await container.playerRepository.getMainPlayer(
         interaction.user.id,
       )
       if (!player?.allyCode) {

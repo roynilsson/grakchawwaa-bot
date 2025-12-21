@@ -29,7 +29,7 @@ export class UnregisterTicketCollectionCommand extends Command {
       await interaction.deferReply()
 
       // Get player's ally code
-      const playerData = await container.playerRepository.getPlayer(
+      const playerData = await container.playerRepository.getMainPlayer(
         interaction.user.id,
       )
       if (!playerData) {
