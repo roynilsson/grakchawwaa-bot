@@ -14,8 +14,9 @@
     "composite": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "baseUrl": ".",
     "paths": {
-      "@grakchawwaa/core": ["./packages/core/src"]
+      "@grakchawwaa/core": ["./packages/core/src/index.ts"]
     }
   }
 }

@@ -1,20 +1,21 @@
-import { container } from "@sapphire/pieces"
-import { ComlinkGuildData, ComlinkPlayerData } from "@swgoh-utils/comlink"
-import { CacheService } from "../cache-service"
+import ComlinkStub, { ComlinkGuildData, ComlinkPlayerData } from "@swgoh-utils/comlink"
+import { CacheService } from "./cache-service"
 
 export class CachedComlinkClient {
   private static instance: CachedComlinkClient
   private cache: CacheService
+  private comlinkClient: InstanceType<typeof ComlinkStub>
   private static readonly MAX_RETRIES = 3
   private static readonly BASE_DELAY = 1000 // 1 second
 
-  private constructor() {
+  private constructor(comlinkClient: InstanceType<typeof ComlinkStub>) {
     this.cache = CacheService.getInstance()
+    this.comlinkClient = comlinkClient
   }
 
-  public static getInstance(): CachedComlinkClient {
+  public static getInstance(comlinkClient: InstanceType<typeof ComlinkStub>): CachedComlinkClient {
     if (!CachedComlinkClient.instance) {
-      CachedComlinkClient.instance = new CachedComlinkClient()
+      CachedComlinkClient.instance = new CachedComlinkClient(comlinkClient)
     }
     return CachedComlinkClient.instance
   }
@@ -77,7 +78,7 @@ export class CachedComlinkClient {
       cacheKey,
       () =>
         this.retryWithBackoff(
-          () => container.comlinkClient.getGuild(guildId, includeActivity),
+          () => this.comlinkClient.getGuild(guildId, includeActivity),
           `getGuild(${guildId})`,
         ),
     )
@@ -89,7 +90,7 @@ export class CachedComlinkClient {
       cacheKey,
       () =>
         this.retryWithBackoff(
-          () => container.comlinkClient.getPlayer(allyCode),
+          () => this.comlinkClient.getPlayer(allyCode),
           `getPlayer(${allyCode})`,
         ),
     )

@@ -1,5 +1,5 @@
 import { container } from "@sapphire/pieces"
-import { CachedComlinkClient } from "./comlink/cached-comlink-client"
+import { CachedComlinkClient } from "@grakchawwaa/core"
 
 declare module "@sapphire/pieces" {
   interface Container {
@@ -8,6 +8,6 @@ declare module "@sapphire/pieces" {
 }
 
 export const setupServices = (): void => {
-  const cachedComlinkClient = CachedComlinkClient.getInstance()
+  const cachedComlinkClient = CachedComlinkClient.getInstance(container.comlinkClient)
   container.cachedComlinkClient = cachedComlinkClient
 }

@@ -2,7 +2,7 @@ import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
 import { ComlinkGuildMember } from "@swgoh-utils/comlink"
 import { EmbedBuilder } from "discord.js"
-import { CachedComlinkClient } from "../../services/comlink/cached-comlink-client"
+import { CachedComlinkClient } from "@grakchawwaa/core"
 
 export class GetGuildMembersCommand extends Command {
   private comlinkClient: CachedComlinkClient
@@ -11,7 +11,7 @@ export class GetGuildMembersCommand extends Command {
     super(context, {
       ...options,
     })
-    this.comlinkClient = CachedComlinkClient.getInstance()
+    this.comlinkClient = CachedComlinkClient.getInstance(container.comlinkClient)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {

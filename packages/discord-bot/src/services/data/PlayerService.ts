@@ -146,4 +146,11 @@ export class PlayerService {
     const player = await this.playerRepository.findOne({ playerId })
     return player?.allyCode ?? null
   }
+
+  /**
+   * Find player by player ID
+   */
+  async findPlayerByPlayerId(playerId: string): Promise<Player | null> {
+    return this.playerRepository.findOne({ playerId })
+  }
 }

@@ -13,5 +13,9 @@ export { GuildRepository } from "./repositories/GuildRepository"
 export { GuildMemberRepository } from "./repositories/GuildMemberRepository"
 export { TicketViolationRepository } from "./repositories/TicketViolationRepository"
 
+// Services
+export { CacheService } from "./services/cache-service"
+export { CachedComlinkClient } from "./services/cached-comlink-client"
+
 // Utils
 export { normalizeAllyCode, sanitizeAllyCodeList, formatAllyCode } from "./utils/ally-code"

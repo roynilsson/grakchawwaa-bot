@@ -6,11 +6,11 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "dotenvx run -f .env.dev -- ts-node src/index.ts",
-    "prod": "dotenvx run -f .env.prod -- ts-node src/index.ts",
+    "dev": "dotenvx run -f .env.dev -- ts-node -r tsconfig-paths/register src/index.ts",
+    "prod": "dotenvx run -f .env.prod -- ts-node -r tsconfig-paths/register src/index.ts",
     "clean": "rm -rf dist",
-    "reset-commands-dev": "dotenvx run -f .env.dev -- ts-node infra/reset-commands.ts",
-    "reset-commands-prod": "dotenvx run -f .env.prod -- ts-node infra/reset-commands.ts",
+    "reset-commands-dev": "dotenvx run -f .env.dev -- ts-node -r tsconfig-paths/register infra/reset-commands.ts",
+    "reset-commands-prod": "dotenvx run -f .env.prod -- ts-node -r tsconfig-paths/register infra/reset-commands.ts",
     "lint": "eslint '**/*.ts'",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest",
@@ -43,6 +43,7 @@
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4"
