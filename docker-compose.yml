@@ -48,6 +48,24 @@ services:
     env_file:
       - .env.dev
 
+  web:
+    image: node:24-alpine
+    container_name: grakchawwaa-web
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: sh -c "corepack enable && pnpm install && pnpm dev:web"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.dev
+
 volumes:
   postgres_data:
 

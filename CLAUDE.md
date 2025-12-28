@@ -257,11 +257,16 @@ NODE_ENV=development
 PORT=3200
 APP_NAME=grakchawaa
 
-# Required: Discord Bot Configuration
+# Required: Discord Configuration
 # Get from: https://discord.com/developers/applications
-DISCORD_APPLICATION_ID=your_app_id
-DISCORD_TOKEN=your_bot_token
-DISCORD_PUBLIC_KEY=your_public_key
+DISCORD_CLIENT_ID=your_client_id  # OAuth2 -> Client ID
+DISCORD_CLIENT_SECRET=your_client_secret  # OAuth2 -> Client Secret
+DISCORD_TOKEN=your_bot_token  # Bot -> Token
+DISCORD_PUBLIC_KEY=your_public_key  # General Information -> Public Key
+
+# NextAuth (for web app)
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=  # Generate with: openssl rand -base64 32
 
 # Database (use 'postgres' for Docker, 'localhost' for local)
 PGUSER=grakchawwaa
