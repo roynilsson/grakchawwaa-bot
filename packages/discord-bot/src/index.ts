@@ -46,7 +46,7 @@ async function main() {
       console.error("Error logging in:", error)
     })
 
-  console.log("Bot initialization complete, ", process.env.DISCORD_APPLICATION_ID)
+  console.log("Bot initialization complete, ", process.env.DISCORD_CLIENT_ID)
 }
 
 main().catch((error) => {

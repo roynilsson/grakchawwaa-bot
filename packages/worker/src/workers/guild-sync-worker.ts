@@ -75,7 +75,7 @@ export class GuildSyncWorker {
       // Fetch guild data from Comlink
       const guildData = await this.cachedComlinkClient.getGuild(
         guildId,
-        false, // Don't need activity info for sync
+        true, // Need activity info for player names and join times
       )
 
       if (!guildData?.guild?.member) {
@@ -127,7 +127,7 @@ export class GuildSyncWorker {
 
           if (existing) {
             // Update existing player
-            existing.name = member.playerName
+            existing.name = playerData.name || member.playerName
             existing.playerId = member.playerId
             await em.persistAndFlush(existing)
             playersUpdated++
@@ -135,7 +135,7 @@ export class GuildSyncWorker {
             // Create new player (without discord_id)
             const newPlayer = playerRepository.create({
               allyCode,
-              name: member.playerName,
+              name: playerData.name || member.playerName,
               playerId: member.playerId,
               isMain: false,
               registeredAt: new Date(),
@@ -145,8 +145,9 @@ export class GuildSyncWorker {
           }
 
           // Store for guild member sync
-          const joinedAt = member.guildJoinTime
-            ? new Date(parseInt(member.guildJoinTime) * 1000)
+          const joinTimeMs = parseInt(member.guildJoinTime || "0")
+          const joinedAt = joinTimeMs > 0
+            ? new Date(joinTimeMs * 1000)
             : new Date()
 
           memberDataList.push({ allyCode, joinedAt })
@@ -200,7 +201,7 @@ export class GuildSyncWorker {
       comlinkMembers.map((m) => m.allyCode),
     )
 
-    // Find members to add (in Comlink but not in DB or previously left)
+    // Find members to add or update (in Comlink but not in DB or previously left)
     for (const comlinkMember of comlinkMembers) {
       if (!currentAllyCodes.has(comlinkMember.allyCode)) {
         // Check if this member previously left
@@ -232,6 +233,15 @@ export class GuildSyncWorker {
             await em.persistAndFlush(newMember)
             stats.added++
           }
+        }
+      } else {
+        // Member already exists and is active - update joinedAt if it changed
+        const existingMember = currentMembers.find(
+          (m) => m.player.unwrap().allyCode === comlinkMember.allyCode
+        )
+        if (existingMember && existingMember.joinedAt.getTime() !== comlinkMember.joinedAt.getTime()) {
+          existingMember.joinedAt = comlinkMember.joinedAt
+          await em.persistAndFlush(existingMember)
         }
       }
     }

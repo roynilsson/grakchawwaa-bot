@@ -96,9 +96,17 @@ pnpm install
   ```
     NODE_ENV=development
 
-    DISCORD_APPLICATION_ID=your_application_id
+    # Discord (from https://discord.com/developers/applications)
+    DISCORD_CLIENT_ID=your_client_id
+    DISCORD_CLIENT_SECRET=your_client_secret
     DISCORD_TOKEN=your_bot_token
+    DISCORD_PUBLIC_KEY=your_public_key
 
+    # NextAuth (for web app)
+    NEXTAUTH_URL=http://localhost:3000
+    NEXTAUTH_SECRET=your_generated_secret  # Run: openssl rand -base64 32
+
+    # Database
     PGUSER=grakchawwaa
     PGHOST=postgres
     PGPORT=5432
