@@ -13,8 +13,8 @@ async function main() {
   const orm = await initializeMikroORM()
   container.orm = orm
   setupPostgresClients()
-  setupServices()
   setupComlinkClient()
+  setupServices()
 
   const client = new DiscordBotClient()
   const summaryService = new ViolationSummaryService(client)
