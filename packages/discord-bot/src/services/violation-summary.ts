@@ -29,6 +29,7 @@ interface SummaryContext {
   violations: TicketViolation[]
   reportLabel: string
   daysInPeriod: number
+  includeFormer?: boolean
 }
 
 interface SummaryMessageData {
@@ -126,6 +127,7 @@ export class ViolationSummaryService {
     channelId: string,
     guildName: string,
     days: number,
+    includeFormer: boolean = false,
   ): Promise<void> {
     try {
       // Validate days parameter
@@ -154,6 +156,7 @@ export class ViolationSummaryService {
         violations,
         reportLabel: reportType,
         daysInPeriod: days,
+        includeFormer,
       })
     } catch (error) {
       console.error(
@@ -175,6 +178,8 @@ export class ViolationSummaryService {
       const { stats: playerStats } = await this.getSortedPlayerStats(
         context.violations,
         context.daysInPeriod,
+        context.guildId,
+        context.includeFormer,
       )
       if (!playerStats.length) {
         console.log("No player statistics generated for summary report")
@@ -234,7 +239,7 @@ export class ViolationSummaryService {
       }
 
       const { stats: playerStats, guildName } =
-        await this.getSortedPlayerStats(violations, request.days)
+        await this.getSortedPlayerStats(violations, request.days, request.guildId, false)
 
       if (!playerStats.length) {
         await interaction.editReply("No player data available for this period.")
@@ -306,18 +311,34 @@ export class ViolationSummaryService {
   private async getSortedPlayerStats(
     violations: TicketViolation[],
     daysInPeriod: number,
+    guildId: string,
+    includeFormer: boolean = false,
   ): Promise<{ stats: ViolationSummary[]; guildName: string | null }> {
     if (!violations.length) {
       return { stats: [], guildName: null }
     }
 
-    const firstViolation = violations[0]!
-
     // Get guild name from database
-    const guild = await container.guildService.getGuild(firstViolation.guildId)
+    const guild = await container.guildService.getGuild(guildId)
     if (!guild) {
       console.error("Could not fetch guild from database")
       return { stats: [], guildName: null }
+    }
+
+    // Get active member player IDs if not including former members
+    let activePlayerIds: Set<string> | null = null
+    if (!includeFormer) {
+      const activeMembers = await container.guildMemberRepository.find({
+        guild: guildId,
+        isActive: true,
+      }, {
+        populate: ["player"],
+      })
+      activePlayerIds = new Set(
+        activeMembers
+          .map((m) => m.player.unwrap().playerId)
+          .filter((id): id is string => !!id)
+      )
     }
 
     // Get all players from database to build playerId -> playerName mapping
@@ -332,6 +353,7 @@ export class ViolationSummaryService {
       violations,
       daysInPeriod,
       playerNames,
+      activePlayerIds,
     )
 
     return {
@@ -545,9 +567,10 @@ export class ViolationSummaryService {
     violations: TicketViolation[],
     daysInPeriod: number,
     playerNames: Map<string, string>,
+    activePlayerIds: Set<string> | null = null,
   ): Map<string, ViolationSummary> {
     // Collect raw data about player violations
-    const playerCounters = this.collectViolationCounts(violations)
+    const playerCounters = this.collectViolationCounts(violations, activePlayerIds)
 
     // Transform raw data into summary statistics
     return this.transformCountersToStats(
@@ -562,29 +585,31 @@ export class ViolationSummaryService {
    */
   private collectViolationCounts(
     violations: TicketViolation[],
+    activePlayerIds: Set<string> | null = null,
   ): Map<string, PlayerCounter> {
     const playerCounters = new Map<string, PlayerCounter>()
 
-    // Process each violation record
+    // Process each violation record (each record is now a single player violation)
     for (const violation of violations) {
-      // Ensure ticket_counts exists, use empty object as fallback
-      const ticketCounts = violation.ticketCounts || {}
+      const playerId = violation.playerId
 
-      // Process each player in the ticket_counts object
-      for (const playerId of Object.keys(ticketCounts)) {
-        // Get or initialize player counter
-        const counter = playerCounters.get(playerId) || {
-          violations: 0,
-          ticketSum: 0,
-        }
-
-        // Update counter
-        counter.violations += 1
-        counter.ticketSum += ticketCounts[playerId] || 0
-
-        // Store updated counter
-        playerCounters.set(playerId, counter)
+      // Skip former members if filtering
+      if (activePlayerIds && !activePlayerIds.has(playerId)) {
+        continue
       }
+
+      // Get or initialize player counter
+      const counter = playerCounters.get(playerId) || {
+        violations: 0,
+        ticketSum: 0,
+      }
+
+      // Update counter
+      counter.violations += 1
+      counter.ticketSum += violation.ticketCount
+
+      // Store updated counter
+      playerCounters.set(playerId, counter)
     }
 
     return playerCounters

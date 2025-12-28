@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 const navItems = [
   { href: "/guild-members", label: "Guild Members" },
   { href: "/violations", label: "Ticket Violations" },
+  { href: "/violations-summary", label: "Violations Summary" },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
