@@ -24,6 +24,12 @@ export class TicketSummaryCommand extends Command {
               .setRequired(true)
               .setMinValue(1)
               .setMaxValue(90),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName("include-former")
+              .setDescription("Include former guild members in the summary")
+              .setRequired(false),
           ),
       { idHints: ["1376565769248444477"] },
     )
@@ -41,6 +47,9 @@ export class TicketSummaryCommand extends Command {
           ephemeral: true,
         })
       }
+
+      // Get the include-former parameter (defaults to false)
+      const includeFormer = interaction.options.getBoolean("include-former") ?? false
 
       // Get the current channel
       const channel = interaction.channel
@@ -76,6 +85,7 @@ export class TicketSummaryCommand extends Command {
         channel.id,
         guildRegistration.guildName!,
         days,
+        includeFormer,
       )
 
       return await interaction.editReply({
