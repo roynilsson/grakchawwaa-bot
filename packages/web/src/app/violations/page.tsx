@@ -39,6 +39,7 @@ function ViolationsContent() {
   const { selectedPlayer } = usePlayer()
   const [violations, setViolations] = useState<Violation[]>([])
   const [guildPlayers, setGuildPlayers] = useState<GuildPlayer[]>([])
+  const [hasPermission, setHasPermission] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -65,6 +66,7 @@ function ViolationsContent() {
         const data = await response.json()
         setViolations(data.violations)
         setGuildPlayers(data.guildPlayers)
+        setHasPermission(data.hasPermission)
         setTotalPages(data.pagination.totalPages)
       } catch (error) {
         console.error("Error fetching violations:", error)
@@ -96,35 +98,37 @@ function ViolationsContent() {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="rounded-lg border bg-white p-4">
-        <div className="flex items-center gap-4">
-          <div className="w-64">
-            <label className="mb-2 block text-sm font-medium">
-              Filter by Player
-            </label>
-            <Select
-              value={filterPlayerId}
-              onValueChange={(value) => {
-                setFilterPlayerId(value === "all" ? "" : value)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All players" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All players</SelectItem>
-                {guildPlayers.map((player) => (
-                  <SelectItem key={player.playerId} value={player.playerId}>
-                    {player.name || player.allyCode}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Filters - Only show for officers/leaders */}
+      {hasPermission && guildPlayers.length > 0 && (
+        <div className="rounded-lg border bg-white p-4">
+          <div className="flex items-center gap-4">
+            <div className="w-64">
+              <label className="mb-2 block text-sm font-medium">
+                Filter by Player
+              </label>
+              <Select
+                value={filterPlayerId}
+                onValueChange={(value) => {
+                  setFilterPlayerId(value === "all" ? "" : value)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All players" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All players</SelectItem>
+                  {guildPlayers.map((player) => (
+                    <SelectItem key={player.playerId} value={player.playerId}>
+                      {player.name || player.allyCode}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border bg-white">

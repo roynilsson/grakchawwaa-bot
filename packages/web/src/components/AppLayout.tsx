@@ -11,7 +11,7 @@ import { usePlayer } from "@/lib/player-context"
 const navItems = [
   { href: "/guild-members", label: "Guild Members", requiresPermission: false },
   { href: "/violations", label: "Ticket Violations", requiresPermission: false },
-  { href: "/violations-summary", label: "Violations Summary", requiresPermission: false },
+  { href: "/violations-summary", label: "Violations Summary", requiresPermission: true },
   { href: "/warnings", label: "Warnings", requiresPermission: false },
   { href: "/warning-types", label: "Warning Types", requiresPermission: true },
 ]

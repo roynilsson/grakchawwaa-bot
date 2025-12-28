@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { getORM } from "@/lib/db"
-import { GuildMember, TicketViolation, Player } from "@grakchawwaa/core"
+import { GuildMember, TicketViolation, Player, PermissionService } from "@grakchawwaa/core"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     const guildMemberRepository = em.getRepository(GuildMember)
     const ticketViolationRepository = em.getRepository(TicketViolation)
     const playerRepository = em.getRepository(Player)
+    const permissionService = new PermissionService(em)
 
     // Find the player's guild
     const playerMembership = await guildMemberRepository.findOne(
@@ -46,9 +47,21 @@ export async function GET(request: NextRequest) {
 
     const guildId = playerMembership.guild.unwrap().id
 
+    // Check permissions
+    const hasPermission = await permissionService.isOfficerOrLeader(guildId, allyCode)
+
+    // Find the player record to get playerId for filtering
+    const player = await playerRepository.findOne({ allyCode })
+    const playerId = player?.playerId
+
     // Build filter for violations
     const where: any = { guildId }
-    if (filterPlayerId) {
+
+    // If regular member, force filter to only their violations
+    if (!hasPermission && playerId) {
+      where.playerId = playerId
+    } else if (filterPlayerId) {
+      // Officers/leaders can filter by any player
       where.playerId = filterPlayerId
     }
     if (dateFrom || dateTo) {
@@ -104,7 +117,8 @@ export async function GET(request: NextRequest) {
         tickets: v.ticketCount,
         missingTickets: 600 - v.ticketCount,
       })),
-      guildPlayers,
+      guildPlayers: hasPermission ? guildPlayers : [], // Only return player list for officers/leaders
+      hasPermission,
       pagination: {
         page,
         limit,
