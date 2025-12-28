@@ -2,12 +2,24 @@
   "name": "@grakchawwaa/worker",
   "version": "1.0.0",
   "description": "Background worker for SWGOH guild management",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "echo \"Worker not implemented yet\"",
-    "build": "echo \"Worker not implemented yet\"",
-    "clean": "echo \"Worker not implemented yet\""
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "dotenvx run -f .env.dev -- ts-node -r tsconfig-paths/register src/index.ts",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@grakchawwaa/core": "workspace:*"
+    "@grakchawwaa/core": "workspace:*",
+    "@swgoh-utils/comlink": "^1.4.1"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.51.1",
+    "@mikro-orm/core": "^6.6.2",
+    "@mikro-orm/postgresql": "^6.6.2",
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
   }
 }

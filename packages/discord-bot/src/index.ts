@@ -4,9 +4,8 @@ import { setupPostgresClients } from "./db/postgres-client"
 import { DiscordBotClient } from "./discord-bot-client"
 import { AnniversaryMonitorService } from "./services/anniversary-monitor"
 import { setupComlinkClient } from "./services/comlink/comlink-service"
-import { GuildSyncService } from "./services/guild-sync"
 import { setupServices } from "./services/setup-services"
-import { TicketMonitorService } from "./services/ticket-monitor"
+import { TicketNotificationService } from "./services/ticket-notification"
 import { ViolationSummaryService } from "./services/violation-summary"
 
 async function main() {
@@ -21,13 +20,9 @@ async function main() {
   client.on("clientReady", () => {
     console.log(`Logged in as ${client.user?.tag}!`)
 
-    // Start the guild sync service (runs hourly)
-    const guildSync = GuildSyncService.getInstance()
-    guildSync.start()
-
-    // Start the ticket monitoring service
-    const ticketMonitor = new TicketMonitorService(client, summaryService)
-    ticketMonitor.start()
+    // Start the ticket notification service (reads from DB, sends Discord messages)
+    const ticketNotification = new TicketNotificationService(client, summaryService)
+    ticketNotification.start()
 
     // Start the anniversary monitoring service
     const anniversaryMonitor = new AnniversaryMonitorService(client)
