@@ -8,10 +8,17 @@ interface Player {
   isMain: boolean
 }
 
+interface Permissions {
+  isOfficerOrLeader: boolean
+  isLeader: boolean
+  memberLevel: number | null
+}
+
 interface PlayerContextType {
   players: Player[]
   selectedPlayer: Player | null
   setSelectedPlayer: (player: Player) => void
+  permissions: Permissions
   isLoading: boolean
 }
 
@@ -20,6 +27,11 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined)
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([])
   const [selectedPlayer, setSelectedPlayerState] = useState<Player | null>(null)
+  const [permissions, setPermissions] = useState<Permissions>({
+    isOfficerOrLeader: false,
+    isLeader: false,
+    memberLevel: null,
+  })
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -44,13 +56,45 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     fetchPlayers()
   }, [])
 
+  useEffect(() => {
+    async function fetchPermissions() {
+      if (!selectedPlayer) {
+        setPermissions({
+          isOfficerOrLeader: false,
+          isLeader: false,
+          memberLevel: null,
+        })
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `/api/permissions?allyCode=${selectedPlayer.allyCode}`
+        )
+        if (!response.ok) throw new Error("Failed to fetch permissions")
+
+        const data = await response.json()
+        setPermissions(data)
+      } catch (error) {
+        console.error("Error fetching permissions:", error)
+        setPermissions({
+          isOfficerOrLeader: false,
+          isLeader: false,
+          memberLevel: null,
+        })
+      }
+    }
+
+    fetchPermissions()
+  }, [selectedPlayer])
+
   const setSelectedPlayer = (player: Player) => {
     setSelectedPlayerState(player)
   }
 
   return (
     <PlayerContext.Provider
-      value={{ players, selectedPlayer, setSelectedPlayer, isLoading }}
+      value={{ players, selectedPlayer, setSelectedPlayer, permissions, isLoading }}
     >
       {children}
     </PlayerContext.Provider>

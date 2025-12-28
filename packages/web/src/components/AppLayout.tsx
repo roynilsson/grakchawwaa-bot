@@ -6,15 +6,24 @@ import { PlayerSelector } from "./PlayerSelector"
 import { Button } from "./ui/button"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { usePlayer } from "@/lib/player-context"
 
 const navItems = [
-  { href: "/guild-members", label: "Guild Members" },
-  { href: "/violations", label: "Ticket Violations" },
-  { href: "/violations-summary", label: "Violations Summary" },
+  { href: "/guild-members", label: "Guild Members", requiresPermission: false },
+  { href: "/violations", label: "Ticket Violations", requiresPermission: false },
+  { href: "/violations-summary", label: "Violations Summary", requiresPermission: false },
+  { href: "/warnings", label: "Warnings", requiresPermission: false },
+  { href: "/warning-types", label: "Warning Types", requiresPermission: true },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { permissions } = usePlayer()
+
+  // Filter nav items based on permissions
+  const visibleNavItems = navItems.filter(
+    (item) => !item.requiresPermission || permissions.isOfficerOrLeader
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -30,7 +39,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
               {/* Navigation */}
               <nav className="hidden md:flex md:gap-6">
-                {navItems.map((item) => (
+                {visibleNavItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

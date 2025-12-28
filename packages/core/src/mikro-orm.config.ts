@@ -3,11 +3,13 @@ import { Guild } from "./entities/Guild.entity"
 import { GuildMember } from "./entities/GuildMember.entity"
 import { Player } from "./entities/Player.entity"
 import { TicketViolation } from "./entities/TicketViolation.entity"
+import { WarningType } from "./entities/WarningType.entity"
+import { Warning } from "./entities/Warning.entity"
 
 const isProduction = process.env.NODE_ENV === "production"
 
 export default defineConfig({
-  entities: [Player, Guild, GuildMember, TicketViolation],
+  entities: [Player, Guild, GuildMember, TicketViolation, WarningType, Warning],
   ...(isProduction && process.env.PG_DATABASE_URL
     ? {
         clientUrl: process.env.PG_DATABASE_URL,

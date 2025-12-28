@@ -98,7 +98,7 @@ export class GuildSyncWorker {
       // Sync players: ensure all guild members exist in players table
       let playersCreated = 0
       let playersUpdated = 0
-      const memberDataList: Array<{ allyCode: string; joinedAt: Date }> = []
+      const memberDataList: Array<{ allyCode: string; joinedAt: Date; memberLevel: number }> = []
 
       const playerRepository = em.getRepository(Player)
 
@@ -150,7 +150,13 @@ export class GuildSyncWorker {
             ? new Date(joinTimeMs * 1000)
             : new Date()
 
-          memberDataList.push({ allyCode, joinedAt })
+          const memberLevel = member.memberLevel || 2
+          console.log(`Member ${member.playerName} (${allyCode}): level ${memberLevel}`)
+          memberDataList.push({
+            allyCode,
+            joinedAt,
+            memberLevel,
+          })
         } catch (error) {
           console.warn(
             `Error fetching player ${member.playerName} (${member.playerId}):`,
@@ -184,7 +190,7 @@ export class GuildSyncWorker {
     guildMemberRepository: EntityRepository<GuildMember>,
     playerRepository: EntityRepository<Player>,
     guildId: string,
-    comlinkMembers: Array<{ allyCode: string; joinedAt: Date }>,
+    comlinkMembers: Array<{ allyCode: string; joinedAt: Date; memberLevel: number }>,
   ): Promise<{ added: number; removed: number; reactivated: number }> {
     const stats = { added: 0, removed: 0, reactivated: 0 }
 
@@ -216,6 +222,7 @@ export class GuildSyncWorker {
           previousMembership.isActive = true
           previousMembership.leftAt = undefined
           previousMembership.joinedAt = comlinkMember.joinedAt
+          previousMembership.memberLevel = comlinkMember.memberLevel
           await em.persistAndFlush(previousMembership)
           stats.reactivated++
         } else {
@@ -228,6 +235,7 @@ export class GuildSyncWorker {
               guild: guildId,
               player: player,
               joinedAt: comlinkMember.joinedAt,
+              memberLevel: comlinkMember.memberLevel,
               isActive: true,
             })
             await em.persistAndFlush(newMember)
@@ -235,13 +243,24 @@ export class GuildSyncWorker {
           }
         }
       } else {
-        // Member already exists and is active - update joinedAt if it changed
+        // Member already exists and is active - update joinedAt and memberLevel if changed
         const existingMember = currentMembers.find(
           (m) => m.player.unwrap().allyCode === comlinkMember.allyCode
         )
-        if (existingMember && existingMember.joinedAt.getTime() !== comlinkMember.joinedAt.getTime()) {
-          existingMember.joinedAt = comlinkMember.joinedAt
-          await em.persistAndFlush(existingMember)
+        if (existingMember) {
+          let needsUpdate = false
+          if (existingMember.joinedAt.getTime() !== comlinkMember.joinedAt.getTime()) {
+            existingMember.joinedAt = comlinkMember.joinedAt
+            needsUpdate = true
+          }
+          // Always update member level (in case of promotions/demotions)
+          if (existingMember.memberLevel !== comlinkMember.memberLevel) {
+            existingMember.memberLevel = comlinkMember.memberLevel
+            needsUpdate = true
+          }
+          if (needsUpdate) {
+            await em.persistAndFlush(existingMember)
+          }
         }
       }
     }

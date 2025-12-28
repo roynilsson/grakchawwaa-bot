@@ -10,6 +10,10 @@ import {
   PlayerRepository,
   TicketViolation,
   TicketViolationRepository,
+  WarningType,
+  WarningTypeRepository,
+  Warning,
+  WarningRepository,
   PermissionService,
   getORM,
 } from "@grakchawwaa/core"
@@ -27,6 +31,8 @@ declare module "@sapphire/pieces" {
     guildMemberRepository: GuildMemberRepository
     guildMemberService: GuildMemberService
     ticketViolationRepository: TicketViolationRepository
+    warningTypeRepository: WarningTypeRepository
+    warningRepository: WarningRepository
     permissionService: PermissionService
   }
 }
@@ -42,5 +48,7 @@ export const setupPostgresClients = (): void => {
   container.guildMemberRepository = em.getRepository(GuildMember)
   container.guildMemberService = new GuildMemberService(em)
   container.ticketViolationRepository = em.getRepository(TicketViolation)
+  container.warningTypeRepository = em.getRepository(WarningType)
+  container.warningRepository = em.getRepository(Warning)
   container.permissionService = new PermissionService(em)
 }
