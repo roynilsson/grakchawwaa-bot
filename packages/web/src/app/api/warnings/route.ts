@@ -147,7 +147,8 @@ export async function POST(request: NextRequest) {
       guildId,
       playerId,
       warningTypeId,
-      note
+      note,
+      allyCode // Pass the issuer's ally code
     )
 
     return NextResponse.json({ warning }, { status: 201 })

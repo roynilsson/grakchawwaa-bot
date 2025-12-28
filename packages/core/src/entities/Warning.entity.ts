@@ -23,6 +23,9 @@ export class Warning {
   @ManyToOne(() => WarningType, { fieldName: "warning_type_id", ref: true })
   warningType!: Ref<WarningType>
 
+  @ManyToOne(() => Player, { fieldName: "issued_by", ref: true, nullable: true })
+  issuedBy?: Ref<Player>
+
   @Property({ fieldName: "created_at", onCreate: () => new Date() })
   createdAt: Date = new Date()
 

@@ -48,7 +48,7 @@ export class WarningRepository extends EntityRepository<Warning> {
     }
 
     const [warnings, total] = await this.findAndCount(where, {
-      populate: ["warningType", "player"],
+      populate: ["warningType", "player", "issuedBy"],
       orderBy: { createdAt: "DESC" },
       limit: filters.limit || 50,
       offset: filters.offset || 0,
@@ -64,7 +64,8 @@ export class WarningRepository extends EntityRepository<Warning> {
     guildId: string,
     playerId: string,
     warningTypeId: number,
-    note?: string
+    note?: string,
+    issuedBy?: string
   ): Promise<Warning> {
     const warning = this.create({
       guild: guildId,
@@ -72,6 +73,7 @@ export class WarningRepository extends EntityRepository<Warning> {
       warningType: warningTypeId,
       createdAt: new Date(),
       note,
+      issuedBy: issuedBy || undefined,
     })
     await this.getEntityManager().persistAndFlush(warning)
     return warning

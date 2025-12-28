@@ -46,6 +46,10 @@ interface Warning {
     name: string
     severity: number
   }
+  issuedBy?: {
+    allyCode: string
+    name: string | null
+  }
 }
 
 interface WarningType {
@@ -61,7 +65,7 @@ interface GuildPlayer {
 }
 
 function WarningsContent() {
-  const { selectedPlayer } = usePlayer()
+  const { selectedPlayer, permissions } = usePlayer()
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [warningTypes, setWarningTypes] = useState<WarningType[]>([])
   const [guildPlayers, setGuildPlayers] = useState<GuildPlayer[]>([])
@@ -361,6 +365,7 @@ function WarningsContent() {
                   <TableHead>Warning Type</TableHead>
                   <TableHead>Severity</TableHead>
                   <TableHead>Note</TableHead>
+                  {permissions.isOfficerOrLeader && <TableHead>Issued By</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -389,6 +394,11 @@ function WarningsContent() {
                     <TableCell className="max-w-md truncate text-muted-foreground">
                       {warning.note || "—"}
                     </TableCell>
+                    {permissions.isOfficerOrLeader && (
+                      <TableCell className="text-muted-foreground">
+                        {warning.issuedBy?.name || warning.issuedBy?.allyCode || "System"}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
