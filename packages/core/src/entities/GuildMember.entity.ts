@@ -8,6 +8,7 @@ import { Player } from "./Player.entity"
   repository: () => GuildMemberRepository,
 })
 @Index({ properties: ["isActive"] })
+@Index({ properties: ["memberLevel"] })
 export class GuildMember {
   @ManyToOne(() => Guild, { fieldName: "guild_id", primary: true, ref: true })
   guild!: Ref<Guild>
@@ -25,4 +26,7 @@ export class GuildMember {
 
   @Property({ fieldName: "is_active", default: true })
   isActive: boolean = true
+
+  @Property({ fieldName: "member_level", nullable: true })
+  memberLevel?: number
 }

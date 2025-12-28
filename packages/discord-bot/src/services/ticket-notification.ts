@@ -161,24 +161,16 @@ export class TicketNotificationService {
         return true
       }
 
-      // Get the most recent violation to see who is below threshold
-      const latestViolation = violations[0]
-      if (!latestViolation.ticketCounts) {
-        return true
-      }
-
-      // Build list of violators
+      // Build list of violators from individual violation records
       const violators: TicketViolator[] = []
-      for (const [playerId, tickets] of Object.entries(
-        latestViolation.ticketCounts,
-      )) {
+      for (const violation of violations) {
         const player = await container.playerService.findPlayerByPlayerId(
-          playerId,
+          violation.playerId,
         )
         violators.push({
-          playerId,
+          playerId: violation.playerId,
           playerName: player?.name || "Unknown Player",
-          tickets,
+          tickets: violation.ticketCount,
         })
       }
 
@@ -284,24 +276,16 @@ export class TicketNotificationService {
         return
       }
 
-      // Get the most recent violation
-      const latestViolation = violations[0]
-      if (!latestViolation.ticketCounts) {
-        return
-      }
-
-      // Build list of violators
+      // Build list of violators from individual violation records
       const violators: TicketViolator[] = []
-      for (const [playerId, tickets] of Object.entries(
-        latestViolation.ticketCounts,
-      )) {
+      for (const violation of violations) {
         const player = await container.playerService.findPlayerByPlayerId(
-          playerId,
+          violation.playerId,
         )
         violators.push({
-          playerId,
+          playerId: violation.playerId,
           playerName: player?.name || "Unknown Player",
-          tickets,
+          tickets: violation.ticketCount,
         })
       }
 

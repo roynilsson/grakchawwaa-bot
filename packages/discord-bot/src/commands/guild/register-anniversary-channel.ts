@@ -11,19 +11,10 @@ interface CommandResponse<T = undefined> {
   value?: T
 }
 
-interface ComlinkGuildMember {
-  playerId: string
-  memberLevel: number
-}
-
 interface ComlinkPlayerData {
   playerId: string
   guildId?: string
   guildName?: string
-}
-
-interface ComlinkGuildData {
-  member?: ComlinkGuildMember[]
 }
 
 export class RegisterAnniversaryChannelCommand extends Command {
@@ -82,12 +73,16 @@ export class RegisterAnniversaryChannelCommand extends Command {
         return await interaction.editReply(guildData.response)
       }
 
-      const hasPermission = await this.checkGuildPermission(
-        guildData.value.playerData,
-        guildData.value.guild,
+      // Check permissions using database instead of Comlink
+      const hasPermission = await container.permissionService.isOfficerOrLeader(
+        guildData.value.guildId,
+        allyCodeResponse.value,
       )
-      if (!hasPermission.success) {
-        return await interaction.editReply(hasPermission.response)
+      if (!hasPermission) {
+        return await interaction.editReply({
+          content:
+            "Only guild leaders and officers can register the guild for anniversary notifications.",
+        })
       }
 
       const registration = await this.registerGuildChannel(
@@ -181,8 +176,6 @@ export class RegisterAnniversaryChannelCommand extends Command {
     CommandResponse<{
       guildId: string
       guildName: string
-      playerData: ComlinkPlayerData
-      guild: ComlinkGuildData
     }>
   > {
     const playerData = await container.comlinkClient.getPlayer(allyCode)
@@ -195,50 +188,14 @@ export class RegisterAnniversaryChannelCommand extends Command {
       }
     }
 
-    const guildData = await container.comlinkClient.getGuild(
-      playerData.guildId,
-      true,
-    )
-    if (!guildData?.guild) {
-      return {
-        success: false,
-        response: {
-          content: `Could not retrieve guild data for guild: ${
-            playerData.guildName || "Unknown Guild"
-          }. Please try again later.`,
-        },
-      }
-    }
-
     return {
       success: true,
       response: { content: "" },
       value: {
         guildId: playerData.guildId,
         guildName: playerData.guildName || "Unknown Guild",
-        playerData,
-        guild: guildData.guild,
       },
     }
-  }
-
-  private async checkGuildPermission(
-    playerData: ComlinkPlayerData,
-    guildData: ComlinkGuildData,
-  ): Promise<CommandResponse> {
-    const guildMember = guildData.member?.find(
-      (m: ComlinkGuildMember) => m.playerId === playerData.playerId,
-    )
-    if (!guildMember || guildMember.memberLevel < 3) {
-      return {
-        success: false,
-        response: {
-          content:
-            "Only guild leaders and officers can register the guild for anniversary notifications.",
-        },
-      }
-    }
-    return { success: true, response: { content: "" } }
   }
 
   private async registerGuildChannel(

@@ -97,7 +97,7 @@ export class GuildSyncService {
       // We need to fetch each player's full data to get their ally code
       let playersCreated = 0
       let playersUpdated = 0
-      const memberDataList: Array<{ allyCode: string; joinedAt: Date }> = []
+      const memberDataList: Array<{ allyCode: string; joinedAt: Date; memberLevel: number }> = []
 
       for (const member of guildData.guild.member) {
         try {
@@ -141,7 +141,11 @@ export class GuildSyncService {
             ? new Date(parseInt(member.guildJoinTime) * 1000)
             : new Date()
 
-          memberDataList.push({ allyCode, joinedAt })
+          memberDataList.push({
+            allyCode,
+            joinedAt,
+            memberLevel: member.memberLevel || 2, // Default to regular member if missing
+          })
         } catch (error) {
           console.warn(
             `Error fetching player ${member.playerName} (${member.playerId}):`,

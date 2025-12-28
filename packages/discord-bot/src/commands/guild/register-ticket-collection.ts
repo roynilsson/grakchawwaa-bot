@@ -3,11 +3,6 @@ import { container } from "@sapphire/pieces"
 import { channelMention, TextChannel } from "discord.js"
 
 // Types for Comlink data
-interface ComlinkGuildMember {
-  playerId: string
-  memberLevel: number
-}
-
 interface ComlinkPlayerData {
   playerId: string
   guildId?: string
@@ -15,7 +10,6 @@ interface ComlinkPlayerData {
 }
 
 interface ComlinkGuildData {
-  member?: ComlinkGuildMember[]
   nextChallengesRefresh?: string
 }
 
@@ -32,8 +26,6 @@ interface GuildRegistrationData {
   guildId: string
   guildName: string
   nextRefreshTime: string
-  playerData: ComlinkPlayerData
-  guild: ComlinkGuildData
 }
 
 export class RegisterTicketCollectionCommand extends Command {
@@ -99,12 +91,16 @@ export class RegisterTicketCollectionCommand extends Command {
         return await interaction.editReply(guildData.response)
       }
 
-      const hasPermission = await this.checkGuildPermission(
-        guildData.value.playerData,
-        guildData.value.guild,
+      // Check permissions using database instead of Comlink
+      const hasPermission = await container.permissionService.isOfficerOrLeader(
+        guildData.value.guildId,
+        allyCodeResponse.value,
       )
-      if (!hasPermission.success) {
-        return await interaction.editReply(hasPermission.response)
+      if (!hasPermission) {
+        return await interaction.editReply({
+          content:
+            "Only guild leaders and officers can register the guild for ticket monitoring.",
+        })
       }
 
       const registration = await this.registerGuildChannel(
@@ -243,7 +239,7 @@ export class RegisterTicketCollectionCommand extends Command {
 
     const guildData = await container.comlinkClient.getGuild(
       playerData.guildId,
-      true,
+      false, // No longer need full member data
     )
     if (!guildData?.guild?.nextChallengesRefresh) {
       return {
@@ -263,29 +259,8 @@ export class RegisterTicketCollectionCommand extends Command {
         guildId: playerData.guildId,
         guildName: playerData.guildName || "Unknown Guild",
         nextRefreshTime: guildData.guild.nextChallengesRefresh,
-        playerData,
-        guild: guildData.guild,
       },
     }
-  }
-
-  private async checkGuildPermission(
-    playerData: ComlinkPlayerData,
-    guildData: ComlinkGuildData,
-  ): Promise<CommandResponse> {
-    const guildMember = guildData.member?.find(
-      (m: ComlinkGuildMember) => m.playerId === playerData.playerId,
-    )
-    if (!guildMember || guildMember.memberLevel < 3) {
-      return {
-        success: false,
-        response: {
-          content:
-            "Only guild leaders and officers can register the guild for ticket monitoring.",
-        },
-      }
-    }
-    return { success: true, response: { content: "" } }
   }
 
   private async registerGuildChannel(
