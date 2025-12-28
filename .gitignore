@@ -138,3 +138,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# pnpm
+.pnpm-store/
+
+# MikroORM snapshots
+packages/core/src/migrations/.snapshot-*
