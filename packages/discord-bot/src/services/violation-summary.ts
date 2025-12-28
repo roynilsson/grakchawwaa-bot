@@ -565,26 +565,22 @@ export class ViolationSummaryService {
   ): Map<string, PlayerCounter> {
     const playerCounters = new Map<string, PlayerCounter>()
 
-    // Process each violation record
+    // Process each violation record (each record is now a single player violation)
     for (const violation of violations) {
-      // Ensure ticket_counts exists, use empty object as fallback
-      const ticketCounts = violation.ticketCounts || {}
+      const playerId = violation.playerId
 
-      // Process each player in the ticket_counts object
-      for (const playerId of Object.keys(ticketCounts)) {
-        // Get or initialize player counter
-        const counter = playerCounters.get(playerId) || {
-          violations: 0,
-          ticketSum: 0,
-        }
-
-        // Update counter
-        counter.violations += 1
-        counter.ticketSum += ticketCounts[playerId] || 0
-
-        // Store updated counter
-        playerCounters.set(playerId, counter)
+      // Get or initialize player counter
+      const counter = playerCounters.get(playerId) || {
+        violations: 0,
+        ticketSum: 0,
       }
+
+      // Update counter
+      counter.violations += 1
+      counter.ticketSum += violation.ticketCount
+
+      // Store updated counter
+      playerCounters.set(playerId, counter)
     }
 
     return playerCounters

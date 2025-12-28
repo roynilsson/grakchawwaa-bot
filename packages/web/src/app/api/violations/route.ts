@@ -48,6 +48,9 @@ export async function GET(request: NextRequest) {
 
     // Build filter for violations
     const where: any = { guildId }
+    if (filterPlayerId) {
+      where.playerId = filterPlayerId
+    }
     if (dateFrom || dateTo) {
       where.date = {}
       if (dateFrom) {
@@ -58,48 +61,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get all violations for the guild (without pagination first)
-    const violations = await ticketViolationRepository.find(where, {
-      orderBy: { date: "DESC" },
-    })
-
-    // Flatten violations and filter by player if needed
-    const flattenedViolations: Array<{
-      date: Date
-      playerId: string
-      tickets: number
-    }> = []
-
-    for (const violation of violations) {
-      if (violation.ticketCounts) {
-        for (const [playerId, tickets] of Object.entries(violation.ticketCounts)) {
-          if (!filterPlayerId || playerId === filterPlayerId) {
-            flattenedViolations.push({
-              date: violation.date,
-              playerId,
-              tickets,
-            })
-          }
-        }
+    // Get violations with pagination (no need to flatten - already individual rows!)
+    const [violations, total] = await ticketViolationRepository.findAndCount(
+      where,
+      {
+        orderBy: { date: "DESC", ticketCount: "ASC" },
+        limit,
+        offset: (page - 1) * limit,
       }
-    }
-
-    // Sort by date descending, then by tickets ascending (worst violations first)
-    flattenedViolations.sort((a, b) => {
-      const dateCompare = b.date.getTime() - a.date.getTime()
-      if (dateCompare !== 0) return dateCompare
-      return a.tickets - b.tickets
-    })
-
-    // Apply pagination to flattened violations
-    const total = flattenedViolations.length
-    const paginatedViolations = flattenedViolations.slice(
-      (page - 1) * limit,
-      page * limit
     )
 
-    // Get player names (only for paginated violations)
-    const playerIds = [...new Set(paginatedViolations.map((v) => v.playerId))]
+    // Get player names for the violations on this page
+    const playerIds = [...new Set(violations.map((v) => v.playerId))]
     const players = await playerRepository.find({
       playerId: { $in: playerIds },
     })
@@ -124,12 +97,12 @@ export async function GET(request: NextRequest) {
     }).filter((p) => p.playerId) // Only players with playerId
 
     return NextResponse.json({
-      violations: paginatedViolations.map((v) => ({
+      violations: violations.map((v) => ({
         date: v.date.toISOString(),
         playerId: v.playerId,
         playerName: playerNamesMap.get(v.playerId) || "Unknown",
-        tickets: v.tickets,
-        missingTickets: 600 - v.tickets,
+        tickets: v.ticketCount,
+        missingTickets: 600 - v.ticketCount,
       })),
       guildPlayers,
       pagination: {

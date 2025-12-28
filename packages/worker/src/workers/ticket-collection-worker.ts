@@ -190,14 +190,8 @@ export class TicketCollectionWorker {
         ticketCounts[v.id] = v.tickets
       })
 
-      // Store violation data
-      const violation = ticketViolationRepository.create({
-        guildId,
-        violationDate: new Date(),
-        ticketCounts,
-      })
-
-      await em.persistAndFlush(violation)
+      // Store violation data using repository method
+      await ticketViolationRepository.recordViolations(guildId, ticketCounts)
 
       console.log(
         `Stored ${violators.length} ticket violations for guild ${guildId}`,
