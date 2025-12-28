@@ -1,5 +1,33 @@
 # CLAUDE.md - Project Context for AI Assistants
 
+## ⚠️ CRITICAL RULES - READ FIRST ⚠️
+
+These are **ABSOLUTE REQUIREMENTS** when working on this project. Violating these rules is unacceptable.
+
+### Docker Commands
+- **ALWAYS** run npm/pnpm/migration/build commands inside the Docker container
+- Use: `docker exec grakchawwaa-bot <command>`
+- **NEVER** run these commands on the host machine first
+- Check if containers are running with `docker ps` before executing commands
+
+### Git Operations
+- **NEVER EVER** use `git add -A` or `git add .`
+- **ALWAYS** stage specific files: `git add <file1> <file2> ...`
+- Use `git status` first to see what changed
+- Only commit files you actually modified for the current task
+
+### Task Execution
+- **NEVER** jump to the next step without explicit user permission
+- If the user says "do X", only do X - don't automatically do Y, Z
+- Ask before: committing, pushing, running migrations, making changes to unrelated files
+- Wait for confirmation before proceeding to the next logical step
+
+### Working Process
+1. Read the task carefully
+2. Confirm what you understand before starting
+3. Execute only what was asked
+4. Report completion and wait for next instruction
+
 ## Project Overview
 
 **grakchawwaa-bot** is a Discord bot for Star Wars: Galaxy of Heroes (SWGOH) guild management. It helps guild leaders and officers monitor guild performance, track member participation, and identify players not meeting expectations.
