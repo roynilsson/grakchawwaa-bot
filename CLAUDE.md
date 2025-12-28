@@ -46,7 +46,7 @@ Star Wars: Galaxy of Heroes is a mobile game where players collect characters an
 ├── packages/
 │   ├── core/                          # @grakchawwaa/core - Shared framework-agnostic code
 │   │   ├── src/
-│   │   │   ├── entities/              # MikroORM entities (Player, GuildMessageChannels, TicketViolation)
+│   │   │   ├── entities/              # MikroORM entities (Player, Guild, GuildMember, TicketViolation)
 │   │   │   ├── repositories/          # Custom MikroORM repositories with domain logic
 │   │   │   ├── migrations/            # Database migrations
 │   │   │   ├── db/                    # MikroORM initialization (getORM, initializeMikroORM)
@@ -141,7 +141,8 @@ The project uses a **pnpm workspace** to share code between multiple application
 **How it works:**
 - Player registration via `/register-player` command
 - Links Discord ID to SWGOH ally code (9-digit game identifier)
-- Supports multiple ally codes per user (alt accounts)
+- Supports multiple ally codes per user (main + alt accounts)
+- Each ally code stored as separate Player record with `isMain` flag
 - Fetches guild member lists via `/get-guild-members`
 
 ### 4. Future Features (Not Yet Implemented)
@@ -190,23 +191,51 @@ The project uses a **pnpm workspace** to share code between multiple application
 The application uses **MikroORM** for database access with TypeScript entities and custom repositories.
 
 ### Tables
-- `players` - Discord ID → Ally Code mappings, registration timestamps
-- `guildMessageChannels` - Guild → Discord channel mappings for notifications
+- `players` - Individual ally code registrations (PK: ally_code)
+  - Links Discord users to SWGOH ally codes
+  - Supports main + alt accounts via `is_main` flag
+  - Partial unique constraint: one main player per Discord user
+- `guilds` - Guild configurations and notification channels (PK: id)
+  - Stores SWGOH guild ID (base64-encoded, varchar(24))
+  - Discord channel IDs for notifications (varchar(20))
+  - Next ticket refresh timestamp (timestamptz)
+- `guild_members` - Guild membership tracking (Composite PK: guild_id, ally_code)
+  - Join table between guilds and players
+  - Soft delete support with `is_active` flag and `left_at` timestamp
+  - Tracks member join/leave history
 - `ticketViolations` - Historical ticket violation records
 - `mikro_orm_migrations` - Migration tracking
 
 ### Entities (in @grakchawwaa/core)
 - `Player` ([packages/core/src/entities/Player.entity.ts](packages/core/src/entities/Player.entity.ts))
-- `GuildMessageChannels` ([packages/core/src/entities/GuildMessageChannels.entity.ts](packages/core/src/entities/GuildMessageChannels.entity.ts))
+  - PK: ally_code (varchar(9))
+  - Fields: discord_id, name, is_main, registered_at
+- `Guild` ([packages/core/src/entities/Guild.entity.ts](packages/core/src/entities/Guild.entity.ts))
+  - PK: id (varchar(24) - SWGOH guild ID)
+  - Fields: name, ticket_collection_channel_id, ticket_reminder_channel_id, anniversary_channel_id, next_ticket_collection_refresh_time
+- `GuildMember` ([packages/core/src/entities/GuildMember.entity.ts](packages/core/src/entities/GuildMember.entity.ts))
+  - Composite PK: guild_id, ally_code
+  - Fields: joined_at, left_at, is_active
 - `TicketViolation` ([packages/core/src/entities/TicketViolation.entity.ts](packages/core/src/entities/TicketViolation.entity.ts))
 
 ### Repositories (in @grakchawwaa/core)
 Custom repositories extend `EntityRepository` with domain-specific methods:
-- `PlayerRepository` - Player registration, lookup by ally code (accepts `discordId: string`)
-- `GuildMessageChannelsRepository` - Guild channel configuration
+- `PlayerRepository` - Player registration, main/alt account management
+  - `getMainPlayer(discordId)` - Get user's main account
+  - `getAllPlayers(discordId)` - Get all accounts (main + alts)
+  - `addUser(discordId, allyCode, isMain)` - Register player
+  - `removeAllyCode(allyCode)` - Remove specific account
+  - Accepts `discordId: string` for framework independence
+- `GuildRepository` - Guild channel configuration
+  - `registerTicketCollectionChannel()` - Setup ticket monitoring
+  - `registerAnniversaryChannel()` - Setup anniversary notifications
+  - Converts Unix timestamp strings to Date objects
+- `GuildMemberRepository` - Guild membership management
+  - `addMember(guildId, allyCode)` - Add member to guild
+  - `removeMember(guildId, allyCode)` - Soft delete member
+  - `getActiveMembers(guildId)` - Get current members
+  - `getAllMembers(guildId)` - Get all including historical
 - `TicketViolationRepository` - Violation tracking and reporting
-
-**Key Change:** PlayerRepository methods now accept `discordId: string` instead of Discord.js `User` objects to maintain framework independence.
 
 ## Development Setup
 
@@ -412,6 +441,13 @@ The bot uses Sapphire's command structure:
 
 ## Recent Changes (from git log)
 
+- 🔧 **Database schema refactoring** (2025-12-21)
+  - Rename GuildMessageChannels entity to Guild
+  - Restructure Player entity to use ally code as primary key
+  - Add support for main/alt account tracking with partial unique constraint
+  - Create GuildMember join table with soft delete support
+  - Optimize column types (varchar instead of text, timestamptz for dates)
+  - Update PlayerRepository API: getMainPlayer(), getAllPlayers()
 - 🏗️ **Migrate to pnpm monorepo architecture** (2024-12-15)
   - Create `@grakchawwaa/core` package with framework-agnostic database layer
   - Create `@grakchawwaa/discord-bot` package using core
@@ -422,5 +458,4 @@ The bot uses Sapphire's command structure:
 - ✨ Implement success notification for perfect ticket collection
 - 📝 Add timestamp on registration for legal reasons
 - 📝 Revise Privacy Policy and Terms of Service
-- 📝 Update description format in configuration file
 - Legal documentation improvements (#17)

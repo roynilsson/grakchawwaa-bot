@@ -1,12 +1,13 @@
 import { defineConfig } from "@mikro-orm/postgresql"
-import { GuildMessageChannels } from "./entities/GuildMessageChannels.entity"
+import { Guild } from "./entities/Guild.entity"
+import { GuildMember } from "./entities/GuildMember.entity"
 import { Player } from "./entities/Player.entity"
 import { TicketViolation } from "./entities/TicketViolation.entity"
 
 const isProduction = process.env.NODE_ENV === "production"
 
 export default defineConfig({
-  entities: [Player, GuildMessageChannels, TicketViolation],
+  entities: [Player, Guild, GuildMember, TicketViolation],
   ...(isProduction && process.env.PG_DATABASE_URL
     ? {
         clientUrl: process.env.PG_DATABASE_URL,

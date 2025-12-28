@@ -32,36 +32,32 @@ export class UnregisterPlayerCommand extends Command {
     interaction: Command.ChatInputCommandInteraction,
   ) {
     const allyCode = interaction.options.getString("ally-code")
+    const userCallerToMention = userMention(interaction.user.id)
 
     if (allyCode) {
-      const saveResult = await this.playerOps.removeAllyCode(
-        interaction.user.id,
-        allyCode,
-      )
+      const saveResult = await this.playerOps.removeAllyCode(allyCode)
 
       if (!saveResult) {
         return interaction.reply({
-          content: "Failed to unregister ally code",
+          content: "Failed to unregister ally code. Make sure it's registered first.",
         })
       }
 
-      const userCallerToMention = userMention(interaction.user.id)
-
       return interaction.reply({
-        content: `Unregistered player with ally code: ${allyCode} for ${userCallerToMention}`,
+        content: `Unregistered ally code: ${allyCode} for ${userCallerToMention}`,
       })
     }
-    const saveResult = await this.playerOps.removePlayer(interaction.user.id)
+
+    const saveResult = await this.playerOps.removeAllPlayers(interaction.user.id)
 
     if (!saveResult) {
       return interaction.reply({
-        content: "Failed to unregister player",
+        content: "Failed to unregister players. No players found.",
       })
     }
 
-    const userCallerToMention = userMention(interaction.user.id)
     return interaction.reply({
-      content: `Unregistered player ${userCallerToMention} and all associated ally codes`,
+      content: `Unregistered all ally codes for ${userCallerToMention}`,
     })
   }
 }

@@ -149,7 +149,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
     const allyCode = inputAllyCode?.replace(/-/g, "") ?? null
 
     if (!allyCode) {
-      const player = await container.playerRepository.getPlayer(
+      const player = await container.playerRepository.getMainPlayer(
         interaction.user.id,
       )
       if (!player?.allyCode) {
@@ -245,7 +245,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
     channelId: string,
   ): Promise<CommandResponse> {
     const success =
-      await container.guildMessageChannelsRepository.registerAnniversaryChannel(
+      await container.guildRepository.registerAnniversaryChannel(
         guildId,
         channelId,
       )
