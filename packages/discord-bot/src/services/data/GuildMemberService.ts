@@ -24,6 +24,7 @@ export class GuildMemberService {
     guildId: string,
     allyCode: string,
     joinedAt?: Date,
+    memberLevel?: number,
   ): Promise<void> {
     if (!guildId || !allyCode) {
       throw new Error("Invalid guild member data")
@@ -47,6 +48,10 @@ export class GuildMemberService {
       else if (joinedAt && !member.joinedAt) {
         member.joinedAt = joinedAt
       }
+      // Update member level if provided
+      if (memberLevel !== undefined) {
+        member.memberLevel = memberLevel
+      }
     } else {
       // Create new member - provide primary key values directly
       member = this.em.create(GuildMember, {
@@ -54,6 +59,7 @@ export class GuildMemberService {
         player: allyCode,
         joinedAt: joinedAt || new Date(),
         isActive: true,
+        memberLevel,
       })
     }
 
@@ -142,7 +148,7 @@ export class GuildMemberService {
    */
   async syncMembers(
     guildId: string,
-    comlinkMembers: Array<{ allyCode: string; joinedAt: Date }>,
+    comlinkMembers: Array<{ allyCode: string; joinedAt: Date; memberLevel: number }>,
   ): Promise<{ added: number; removed: number; reactivated: number }> {
     if (!guildId) {
       throw new Error("Invalid guild ID")
@@ -175,6 +181,7 @@ export class GuildMemberService {
           player: comlinkMember.allyCode,
           joinedAt: comlinkMember.joinedAt,
           isActive: true,
+          memberLevel: comlinkMember.memberLevel,
         })
         added++
       } else if (!existing.isActive) {
@@ -182,10 +189,15 @@ export class GuildMemberService {
         existing.isActive = true
         existing.leftAt = undefined
         existing.joinedAt = comlinkMember.joinedAt
+        existing.memberLevel = comlinkMember.memberLevel
         reactivated++
-      } else if (!existing.joinedAt) {
-        // Active member but missing joinedAt - populate it
-        existing.joinedAt = comlinkMember.joinedAt
+      } else {
+        // Active member - update data
+        if (!existing.joinedAt) {
+          existing.joinedAt = comlinkMember.joinedAt
+        }
+        // Always update member level (in case of promotions/demotions)
+        existing.memberLevel = comlinkMember.memberLevel
       }
     }
 

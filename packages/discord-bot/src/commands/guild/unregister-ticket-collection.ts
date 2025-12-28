@@ -50,29 +50,19 @@ export class UnregisterTicketCollectionCommand extends Command {
         })
       }
 
-      // Get guild info from comlink
+      // Verify player is in a guild
       if (!comlinkPlayer.guildId) {
         return interaction.editReply({
           content: "You must be in a guild to use this command.",
         })
       }
 
-      const comlinkGuild = await container.cachedComlinkClient.getGuild(
+      // Check permissions using database
+      const hasPermission = await container.permissionService.isOfficerOrLeader(
         comlinkPlayer.guildId,
-        false,
+        playerData.allyCode,
       )
-      if (!comlinkGuild?.guild?.member) {
-        return interaction.editReply({
-          content:
-            "Could not verify your guild information. Please try again later.",
-        })
-      }
-
-      // Find the player in the guild and check their role
-      const guildMember = comlinkGuild.guild.member.find(
-        (m) => m.playerId === comlinkPlayer.playerId,
-      )
-      if (!guildMember || guildMember.memberLevel < 3) {
+      if (!hasPermission) {
         return interaction.editReply({
           content:
             "Only guild leaders and officers can unregister the guild from ticket monitoring.",
@@ -80,10 +70,9 @@ export class UnregisterTicketCollectionCommand extends Command {
       }
 
       // Check if the guild is registered for monitoring
-      const monitoringData =
-        await container.guildService.getGuild(
-          comlinkGuild.guild.profile.id,
-        )
+      const monitoringData = await container.guildService.getGuild(
+        comlinkPlayer.guildId,
+      )
       if (!monitoringData) {
         return interaction.editReply({
           content:

@@ -16,6 +16,7 @@ export { TicketViolationRepository } from "./repositories/TicketViolationReposit
 // Services
 export { CacheService } from "./services/cache-service"
 export { CachedComlinkClient } from "./services/cached-comlink-client"
+export { PermissionService, MemberLevel } from "./services/PermissionService"
 
 // Utils
 export { normalizeAllyCode, sanitizeAllyCodeList, formatAllyCode } from "./utils/ally-code"
