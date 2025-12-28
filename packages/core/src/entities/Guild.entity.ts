@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/core"
+import { Entity, PrimaryKey, PrimaryKeyProp, Property } from "@mikro-orm/core"
 import { GuildRepository } from "../repositories/GuildRepository"
 
 @Entity({
@@ -8,6 +8,8 @@ import { GuildRepository } from "../repositories/GuildRepository"
 export class Guild {
   @PrimaryKey({ fieldName: "id", length: 24 })
   id!: string
+
+  [PrimaryKeyProp]?: "id"
 
   @Property({ fieldName: "name", nullable: true })
   name?: string

@@ -25,8 +25,6 @@ export class TicketMonitorService {
   private isDevMode: boolean
   private static EMBED_FIELD_LIMIT = 25
   private static EMBEDS_PER_MESSAGE = 10
-  private playerAllyCodeCache: Map<string, string | null> = new Map()
-  private allyCodeDiscordCache: Map<string, string | null> = new Map()
 
   constructor(
     client: DiscordBotClient,
@@ -62,14 +60,12 @@ export class TicketMonitorService {
     // Clear processed refresh times when stopping
     this.processedRefreshTimes.clear()
     this.reminderSentTimes.clear()
-    this.playerAllyCodeCache.clear()
-    this.allyCodeDiscordCache.clear()
   }
 
   private async checkGuildResetTimes(): Promise<void> {
     try {
       // Get all registered guilds
-      const guilds = await container.guildRepository.getAllGuilds()
+      const guilds = await container.guildService.getAllGuilds()
       const now = Date.now()
 
       for (const guild of guilds) {
@@ -186,11 +182,15 @@ export class TicketMonitorService {
     try {
       console.log(`Collecting ticket data for guild ${guildId}`)
 
+      // Get guild name from database
+      const guild = await container.guildService.getGuild(guildId)
+      const guildName = guild?.name || "Unknown Guild"
+
       const guildData = await this.fetchGuildData(guildId)
       if (!guildData) return
 
       const violators = this.findTicketViolators(guildData.guild.member)
-      await this.handleViolations(guildId, channelId, guildData, violators)
+      await this.handleViolations(guildId, channelId, guildName, violators)
     } catch (error) {
       console.error(`Error collecting ticket data for guild ${guildId}:`, error)
     }
@@ -239,7 +239,7 @@ export class TicketMonitorService {
   private async handleViolations(
     guildId: string,
     channelId: string,
-    guildData: ComlinkGuildData,
+    guildName: string,
     violators: TicketViolator[],
   ): Promise<void> {
     if (violators.length > 0) {
@@ -259,13 +259,13 @@ export class TicketMonitorService {
       // Send notification to the channel
       await this.sendViolationNotification(
         channelId,
-        guildData.guild.profile.name,
+        guildName,
         violators,
       )
     } else {
       await this.sendSuccessNotification(
         channelId,
-        guildData.guild.profile.name,
+        guildName,
       )
     }
   }
@@ -276,6 +276,10 @@ export class TicketMonitorService {
     forceSummaries = false,
   ): Promise<void> {
     try {
+      // Get guild name from database
+      const guild = await container.guildService.getGuild(guildId)
+      const guildName = guild?.name || "Unknown Guild"
+
       const guildData = await this.fetchGuildData(guildId)
       if (!guildData?.guild?.nextChallengesRefresh) {
         console.error(`Failed to get refresh time for guild ${guildId}`)
@@ -293,7 +297,7 @@ export class TicketMonitorService {
       await this.checkAndGenerateSummaries(
         guildId,
         channelId,
-        guildData.guild.profile.name,
+        guildName,
         forceSummaries,
       )
     } catch (error) {
@@ -310,7 +314,7 @@ export class TicketMonitorService {
     newRefreshTime: string,
   ): Promise<void> {
     try {
-      await container.guildRepository.registerTicketCollectionChannel(
+      await container.guildService.registerTicketCollectionChannel(
         guildId,
         channelId,
         newRefreshTime,
@@ -338,6 +342,10 @@ export class TicketMonitorService {
     }
 
     try {
+      // Get guild name from database
+      const guild = await container.guildService.getGuild(guildId)
+      const guildName = guild?.name || "Unknown Guild"
+
       const guildData = await this.fetchGuildData(guildId)
       if (!guildData?.guild?.member?.length) {
         return false
@@ -356,7 +364,7 @@ export class TicketMonitorService {
 
       await this.sendReminderMessage(
         channelId,
-        guildData.guild.profile.name,
+        guildName,
         lines,
       )
       return true
@@ -382,12 +390,15 @@ export class TicketMonitorService {
   private async resolveReminderLabel(
     violator: TicketViolator,
   ): Promise<string> {
-    const allyCode = await this.getAllyCodeForPlayer(violator.id)
+    const allyCode = await container.playerService.findAllyCodeByPlayerId(
+      violator.id,
+    )
     if (!allyCode) {
       return violator.name
     }
 
-    const discordId = await this.findDiscordIdForAllyCode(allyCode)
+    const discordId =
+      await container.playerService.findDiscordIdByAllyCode(allyCode)
     if (!discordId) {
       return violator.name
     }
@@ -395,40 +406,6 @@ export class TicketMonitorService {
     return userMention(discordId)
   }
 
-  private async getAllyCodeForPlayer(
-    playerId: string,
-  ): Promise<string | null> {
-    if (this.playerAllyCodeCache.has(playerId)) {
-      return this.playerAllyCodeCache.get(playerId) ?? null
-    }
-
-    try {
-      const playerData = await container.comlinkClient.getPlayer(
-        undefined,
-        playerId,
-      )
-      const normalized = normalizeAllyCode(playerData?.allyCode)
-      this.playerAllyCodeCache.set(playerId, normalized)
-      return normalized
-    } catch (error) {
-      console.error(`Error fetching ally code for player ${playerId}:`, error)
-      this.playerAllyCodeCache.set(playerId, null)
-      return null
-    }
-  }
-
-  private async findDiscordIdForAllyCode(
-    allyCode: string,
-  ): Promise<string | null> {
-    if (this.allyCodeDiscordCache.has(allyCode)) {
-      return this.allyCodeDiscordCache.get(allyCode) ?? null
-    }
-
-    const discordId =
-      await container.playerRepository.findDiscordIdByAllyCode(allyCode)
-    this.allyCodeDiscordCache.set(allyCode, discordId)
-    return discordId
-  }
 
   private async sendReminderMessage(
     channelId: string,

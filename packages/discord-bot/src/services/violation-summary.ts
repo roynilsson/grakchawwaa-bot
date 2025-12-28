@@ -312,20 +312,20 @@ export class ViolationSummaryService {
     }
 
     const firstViolation = violations[0]!
-    const guildData = await container.cachedComlinkClient.getGuild(
-      firstViolation.guildId,
-      true,
-    )
-    if (!guildData?.guild?.member) {
-      console.error("Could not fetch guild data for player names")
+
+    // Get guild name from database
+    const guild = await container.guildService.getGuild(firstViolation.guildId)
+    if (!guild) {
+      console.error("Could not fetch guild from database")
       return { stats: [], guildName: null }
     }
 
+    // Get all players from database to build playerId -> playerName mapping
+    const players = await container.playerRepository.findAll()
     const playerNames = new Map(
-      guildData.guild.member.map((member) => [
-        member.playerId,
-        member.playerName,
-      ]),
+      players
+        .filter((p) => p.playerId) // Only players with playerId
+        .map((p) => [p.playerId!, p.name || "Unknown Player"]),
     )
 
     const playerStats = this.calculatePlayerStats(
@@ -338,7 +338,7 @@ export class ViolationSummaryService {
       stats: [...playerStats.values()].sort(
         (a, b) => a.averageTickets - b.averageTickets,
       ),
-      guildName: guildData.guild.profile?.name ?? null,
+      guildName: guild.name ?? null,
     }
   }
 

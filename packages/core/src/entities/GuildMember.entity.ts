@@ -1,5 +1,7 @@
-import { Entity, Index, PrimaryKey, Property } from "@mikro-orm/core"
+import { Entity, Index, ManyToOne, PrimaryKeyProp, Property, Ref } from "@mikro-orm/core"
 import { GuildMemberRepository } from "../repositories/GuildMemberRepository"
+import { Guild } from "./Guild.entity"
+import { Player } from "./Player.entity"
 
 @Entity({
   tableName: "guild_members",
@@ -7,11 +9,13 @@ import { GuildMemberRepository } from "../repositories/GuildMemberRepository"
 })
 @Index({ properties: ["isActive"] })
 export class GuildMember {
-  @PrimaryKey({ fieldName: "guild_id", length: 24 })
-  guildId!: string
+  @ManyToOne(() => Guild, { fieldName: "guild_id", primary: true, ref: true })
+  guild!: Ref<Guild>
 
-  @PrimaryKey({ fieldName: "ally_code", length: 9 })
-  allyCode!: string
+  @ManyToOne(() => Player, { fieldName: "ally_code", primary: true, ref: true })
+  player!: Ref<Player>
+
+  [PrimaryKeyProp]?: ["guild", "player"]
 
   @Property({ fieldName: "joined_at" })
   joinedAt: Date = new Date()
