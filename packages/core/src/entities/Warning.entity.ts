@@ -1,8 +1,9 @@
-import { Entity, Index, ManyToOne, PrimaryKey, Property, Ref } from "@mikro-orm/core"
+import { Entity, Index, ManyToOne, PrimaryKey, Property } from "@mikro-orm/core"
+import type { Ref } from "@mikro-orm/core"
 import { WarningRepository } from "../repositories/WarningRepository"
-import { Guild } from "./Guild.entity"
-import { Player } from "./Player.entity"
-import { WarningType } from "./WarningType.entity"
+import type { Guild } from "./Guild.entity"
+import type { Player } from "./Player.entity"
+import type { WarningType } from "./WarningType.entity"
 
 @Entity({
   tableName: "warnings",
