@@ -1,11 +1,11 @@
 import { auth } from "@/lib/auth"
 import { getORM } from "@/lib/db"
-import { GuildMember, WarningType, PermissionService } from "@grakchawwaa/core"
+import { GuildMember, WarningType, WarningTypeRepository, PermissionService } from "@grakchawwaa/core"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -15,7 +15,8 @@ export async function PATCH(
 
     const body = await request.json()
     const { allyCode, name, severity } = body
-    const id = parseInt(params.id)
+    const resolvedParams = await params
+    const id = parseInt(resolvedParams.id)
 
     if (!allyCode || isNaN(id)) {
       return NextResponse.json(
@@ -27,7 +28,7 @@ export async function PATCH(
     const orm = await getORM()
     const em = orm.em.fork()
     const guildMemberRepository = em.getRepository(GuildMember)
-    const warningTypeRepository = em.getRepository(WarningType)
+    const warningTypeRepository = em.getRepository(WarningType) as WarningTypeRepository
     const permissionService = new PermissionService(em)
 
     // Find the player's guild
@@ -88,7 +89,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -98,7 +99,8 @@ export async function DELETE(
 
     const { searchParams } = new URL(request.url)
     const allyCode = searchParams.get("allyCode")
-    const id = parseInt(params.id)
+    const resolvedParams = await params
+    const id = parseInt(resolvedParams.id)
 
     if (!allyCode || isNaN(id)) {
       return NextResponse.json(
@@ -110,7 +112,7 @@ export async function DELETE(
     const orm = await getORM()
     const em = orm.em.fork()
     const guildMemberRepository = em.getRepository(GuildMember)
-    const warningTypeRepository = em.getRepository(WarningType)
+    const warningTypeRepository = em.getRepository(WarningType) as WarningTypeRepository
     const permissionService = new PermissionService(em)
 
     // Find the player's guild

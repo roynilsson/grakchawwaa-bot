@@ -1,5 +1,5 @@
 import { initializeMikroORM } from "@grakchawwaa/core"
-import { MikroORM } from "@mikro-orm/core"
+import { MikroORM } from "@mikro-orm/postgresql"
 
 let orm: MikroORM | null = null
 

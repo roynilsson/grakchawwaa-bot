@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { getORM } from "@/lib/db"
-import { GuildMember, WarningType, PermissionService } from "@grakchawwaa/core"
+import { GuildMember, WarningType, WarningTypeRepository, PermissionService } from "@grakchawwaa/core"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const orm = await getORM()
     const em = orm.em.fork()
     const guildMemberRepository = em.getRepository(GuildMember)
-    const warningTypeRepository = em.getRepository(WarningType)
+    const warningTypeRepository = em.getRepository(WarningType) as WarningTypeRepository
     const permissionService = new PermissionService(em)
 
     // Find the player's guild
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const orm = await getORM()
     const em = orm.em.fork()
     const guildMemberRepository = em.getRepository(GuildMember)
-    const warningTypeRepository = em.getRepository(WarningType)
+    const warningTypeRepository = em.getRepository(WarningType) as WarningTypeRepository
     const permissionService = new PermissionService(em)
 
     // Find the player's guild
