@@ -84,14 +84,14 @@ export class Migration20251200000000 extends Migration {
     // Add foreign key constraints
     this.addSql(`
       alter table "guild_members"
-      add constraint if not exists "guild_members_guild_id_foreign"
+      add constraint "guild_members_guild_id_foreign"
       foreign key ("guild_id") references "guilds" ("id")
       on update cascade on delete cascade;
     `);
 
     this.addSql(`
       alter table "guild_members"
-      add constraint if not exists "guild_members_ally_code_foreign"
+      add constraint "guild_members_ally_code_foreign"
       foreign key ("ally_code") references "players" ("ally_code")
       on update cascade on delete cascade;
     `);
