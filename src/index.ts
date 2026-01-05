@@ -1,3 +1,5 @@
+import { container } from "@sapphire/pieces"
+import { BackendApiClient } from "./api"
 import { setupPostgresClients } from "./db/postgres-client"
 import { DiscordBotClient } from "./discord-bot-client"
 import { AnniversaryMonitorService } from "./services/anniversary-monitor"
@@ -6,6 +8,12 @@ import { setupServices } from "./services/setup-services"
 import { TicketMonitorService } from "./services/ticket-monitor"
 import { ViolationSummaryService } from "./services/violation-summary"
 
+// Initialize backend API client for player commands
+const backendApiUrl = process.env.BACKEND_API_URL || "http://localhost:3000"
+container.backendApi = new BackendApiClient(backendApiUrl)
+console.log(`Backend API URL: ${backendApiUrl}`)
+
+// Keep PostgreSQL clients for non-migrated commands (tickets, violations, etc.)
 setupPostgresClients()
 setupServices()
 setupComlinkClient()

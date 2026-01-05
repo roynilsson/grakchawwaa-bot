@@ -1,15 +1,12 @@
 import { Command } from "@sapphire/framework"
 import { userMention } from "discord.js"
-import { PlayerOperationsCommand } from "./player-operations"
+import { normalizeAllyCode } from "../../utils/ally-code"
 
 export class UnregisterPlayerCommand extends Command {
-  private playerOps: PlayerOperationsCommand
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.playerOps = new PlayerOperationsCommand(context, options)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -17,12 +14,12 @@ export class UnregisterPlayerCommand extends Command {
       (builder) =>
         builder
           .setName("unregister-player")
-          .setDescription("Unregister a player or an ally code")
+          .setDescription("Unregister a player by ally code")
           .addStringOption((option) =>
             option
               .setName("ally-code")
               .setDescription("Ally code to unregister")
-              .setRequired(false),
+              .setRequired(true),
           ),
       { idHints: ["1328102308889755781"] },
     )
@@ -31,42 +28,30 @@ export class UnregisterPlayerCommand extends Command {
   public override async chatInputRun(
     interaction: Command.ChatInputCommandInteraction,
   ) {
-    const allyCode = interaction.options.getString("ally-code")
+    const allyCodeInput = interaction.options.getString("ally-code")
+    const normalizedAllyCode = normalizeAllyCode(allyCodeInput)
 
-    if (allyCode) {
-      const saveResult = await this.playerOps.removeAllyCode({
-        allyCode: allyCode,
-        altAllyCodes: [],
-        discordUser: interaction.user,
+    if (!normalizedAllyCode) {
+      return interaction.reply({
+        content: "Please provide a valid ally code (123-456-789).",
       })
+    }
 
-      if (!saveResult) {
-        return interaction.reply({
-          content: "Failed to unregister ally code",
-        })
-      }
+    // Defer reply immediately to avoid Discord timeout
+    await interaction.deferReply()
+
+    try {
+      await this.container.backendApi.players.delete(normalizedAllyCode)
 
       const userCallerToMention = userMention(interaction.user.id)
-
-      return interaction.reply({
-        content: `Unregistered player with ally code: ${allyCode} for ${userCallerToMention}`,
+      return interaction.editReply({
+        content: `Unregistered player with ally code ${normalizedAllyCode} for ${userCallerToMention}`,
+      })
+    } catch (error) {
+      console.error("Error unregistering player:", error)
+      return interaction.editReply({
+        content: `Failed to unregister ally code. ${(error as Error).message}`,
       })
     }
-    const saveResult = await this.playerOps.removePlayer({
-      discordUser: interaction.user,
-      allyCode: "",
-      altAllyCodes: [],
-    })
-
-    if (!saveResult) {
-      return interaction.reply({
-        content: "Failed to unregister player",
-      })
-    }
-
-    const userCallerToMention = userMention(interaction.user.id)
-    return interaction.reply({
-      content: `Unregistered player ${userCallerToMention} and all associated ally codes`,
-    })
   }
 }

@@ -1,17 +1,12 @@
 import { Command } from "@sapphire/framework"
-import { User, userMention } from "discord.js"
-import { Player } from "../../model/player"
-import { normalizeAllyCode, sanitizeAllyCodeList } from "../../utils/ally-code"
-import { PlayerOperationsCommand } from "./player-operations"
+import { userMention } from "discord.js"
+import { normalizeAllyCode } from "../../utils/ally-code"
 
 export class RegisterPlayerCommand extends Command {
-  private playerOps: PlayerOperationsCommand
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.playerOps = new PlayerOperationsCommand(context, options)
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -62,6 +57,9 @@ export class RegisterPlayerCommand extends Command {
       })
     }
 
+    // Defer reply immediately to avoid Discord timeout
+    await interaction.deferReply()
+
     console.log(
       "Received register player command",
       normalizedAllyCode,
@@ -69,150 +67,48 @@ export class RegisterPlayerCommand extends Command {
       isAlt,
     )
 
-    const existingPlayer = await this.playerOps.getPlayer(targetUser.id)
-
-    if (!existingPlayer) {
-      return this.registerNewPlayer({
-        interaction,
-        allyCode: normalizedAllyCode,
-        targetUser,
-        targetTag,
-        requestedBy,
-      })
-    }
-
-    return this.updateExistingPlayer({
-      interaction,
-      allyCode: normalizedAllyCode,
-      isAlt,
-      targetTag,
-      requestedBy,
-      existingPlayer,
-      targetUser,
-    })
-  }
-
-  private async registerNewPlayer({
-    interaction,
-    allyCode,
-    targetUser,
-    targetTag,
-    requestedBy,
-  }: {
-    interaction: Command.ChatInputCommandInteraction
-    allyCode: string
-    targetUser: User
-    targetTag: string
-    requestedBy: string | null
-  }) {
-    const saveResult = await this.playerOps.addUser({
-      discordUser: targetUser,
-      allyCode,
-      altAllyCodes: [],
-    })
-
-    if (!saveResult) {
-      return interaction.reply({
-        content: "Failed to save player",
-      })
-    }
-
-    const baseMessage =
-      `Registered player with ally code: ${allyCode} ` +
-      `for ${targetTag}`
-    const replyMessage = `${baseMessage}${this.formatRequesterNote(
-      requestedBy,
-    )}.`
-
-    return interaction.reply({
-      content: replyMessage,
-    })
-  }
-
-  private async updateExistingPlayer({
-    interaction,
-    allyCode,
-    isAlt,
-    targetTag,
-    requestedBy,
-    existingPlayer,
-    targetUser,
-  }: {
-    interaction: Command.ChatInputCommandInteraction
-    allyCode: string
-    isAlt: boolean
-    targetTag: string
-    requestedBy: string | null
-    existingPlayer: Player
-    targetUser: User
-  }) {
-    const primaryAllyCode =
-      normalizeAllyCode(existingPlayer.allyCode) ?? allyCode
-    const altAllyCodes = sanitizeAllyCodeList(existingPlayer.altAllyCodes)
-    const requesterNote = this.formatRequesterNote(requestedBy)
-
-    if (isAlt) {
-      if (primaryAllyCode === allyCode) {
-        return interaction.reply({
-          content: "This ally code is already the primary one.",
-        })
+    try {
+      // Check if this ally code already exists
+      let player
+      try {
+        player = await this.container.backendApi.players.get(normalizedAllyCode)
+      } catch (error) {
+        // Player doesn't exist, will create new
+        player = null
       }
 
-      if (altAllyCodes.includes(allyCode)) {
-        return interaction.reply({
-          content: "This ally code is already registered as an alternate.",
+      const accountType = isAlt ? "alternate" : "main"
+      const requesterNote = targetUser.id === interaction.user.id
+        ? ""
+        : ` (requested by ${userMention(interaction.user.id)})`
+
+      if (player) {
+        // Update existing player
+        await this.container.backendApi.players.update(normalizedAllyCode, {
+          discordId: targetUser.id,
+          isMain: !isAlt,
+        })
+
+        return interaction.editReply({
+          content: `Updated ${accountType} account with ally code ${normalizedAllyCode} for ${targetTag}${requesterNote}.`,
+        })
+      } else {
+        // Create new player
+        await this.container.backendApi.players.create({
+          allyCode: normalizedAllyCode,
+          discordId: targetUser.id,
+          isMain: !isAlt,
+        })
+
+        return interaction.editReply({
+          content: `Registered ${accountType} account with ally code ${normalizedAllyCode} for ${targetTag}${requesterNote}.`,
         })
       }
-
-      const saveResult = await this.playerOps.addUser({
-        discordUser: targetUser,
-        allyCode: primaryAllyCode,
-        altAllyCodes: [...altAllyCodes, allyCode],
-      })
-
-      if (!saveResult) {
-        return interaction.reply({
-          content: "Failed to save player",
-        })
-      }
-
-      return interaction.reply({
-        content:
-          `Added alternate ally code ${allyCode} for ${targetTag}` +
-          `${requesterNote}.`,
+    } catch (error) {
+      console.error("Error registering player:", error)
+      return interaction.editReply({
+        content: `Failed to register ally code. ${(error as Error).message}`,
       })
     }
-
-    if (primaryAllyCode === allyCode) {
-      return interaction.reply({
-        content: "This ally code is already registered as primary.",
-      })
-    }
-
-    const saveResult = await this.playerOps.addUser({
-      discordUser: targetUser,
-      allyCode,
-      altAllyCodes,
-    })
-
-    if (!saveResult) {
-      return interaction.reply({
-        content: "Failed to save player",
-      })
-    }
-
-    return interaction.reply({
-      content:
-        `Updated primary ally code to ${allyCode} for ${targetTag}` +
-        `${requesterNote}.`,
-    })
-  }
-
-  private formatRequesterNote(requestedBy: string | null): string {
-    if (!requestedBy) {
-      return ""
-    }
-
-    return ` (requested by ${requestedBy})`
   }
 }
