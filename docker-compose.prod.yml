@@ -25,7 +25,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
     environment:
       NODE_ENV: production
     command: sh -c "corepack enable && pnpm install && cd packages/core && npx mikro-orm migration:up && echo 'Migrations completed successfully'"
@@ -41,7 +41,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
     environment:
       NODE_ENV: production
     command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/discord-bot start"
@@ -60,7 +60,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
     environment:
       NODE_ENV: production
     command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/worker start"
@@ -79,7 +79,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
     environment:
       NODE_ENV: production
     command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/web start"
@@ -96,4 +96,3 @@ services:
 
 volumes:
   postgres_data:
-  node_modules:
