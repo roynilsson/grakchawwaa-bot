@@ -1,21 +1,22 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: grakchawwaa-postgres
-    environment:
-      POSTGRES_USER: grakchawwaa
-      POSTGRES_PASSWORD: dev_password
-      POSTGRES_DB: grakchawwaa_dev
-    ports:
-      - "5432:5432"
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grakchawwaa-bot
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U grakchawwaa"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      BACKEND_API_URL: ${BACKEND_API_URL:-http://grakchawwaa-backend:3000}
+    networks:
+      - grakchawwaa-network
+    command: pnpm dev
 
-volumes:
-  postgres_data:
+networks:
+  grakchawwaa-network:
+    external: true
+    name: grakchawwaa-backend_grakchawwaa-network
 
