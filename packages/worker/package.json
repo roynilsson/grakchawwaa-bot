@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "dotenvx run -f .env.dev -- ts-node -r tsconfig-paths/register src/index.ts",
+    "prod": "dotenvx run -f .env.prod -- ts-node -r tsconfig-paths/register src/index.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

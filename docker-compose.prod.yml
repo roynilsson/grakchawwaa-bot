@@ -44,7 +44,7 @@ services:
       - /app/node_modules
     environment:
       NODE_ENV: production
-    command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/discord-bot start"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @grakchawwaa/discord-bot prod"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
       - /app/node_modules
     environment:
       NODE_ENV: production
-    command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/worker start"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @grakchawwaa/worker prod"
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,7 +82,7 @@ services:
       - /app/node_modules
     environment:
       NODE_ENV: production
-    command: sh -c "corepack enable && pnpm install && pnpm build && pnpm --filter @grakchawwaa/web start"
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @grakchawwaa/web build && pnpm --filter @grakchawwaa/web start"
     depends_on:
       postgres:
         condition: service_healthy
