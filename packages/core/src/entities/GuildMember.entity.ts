@@ -1,8 +1,7 @@
-import { Entity, Index, ManyToOne, PrimaryKeyProp, Property } from "@mikro-orm/core"
-import type { Ref } from "@mikro-orm/core"
+import { Entity, Index, ManyToOne, PrimaryKeyProp, Property, Ref } from "@mikro-orm/core"
 import { GuildMemberRepository } from "../repositories/GuildMemberRepository"
-import type { Guild } from "./Guild.entity"
-import type { Player } from "./Player.entity"
+import { Guild } from "./Guild.entity"
+import { Player } from "./Player.entity"
 
 @Entity({
   tableName: "guild_members",
