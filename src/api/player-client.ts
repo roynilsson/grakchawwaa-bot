@@ -8,6 +8,14 @@ export interface Player {
 	isMain?: boolean;
 }
 
+export interface PlayerGuildMembership {
+	guildId: string;
+	guildName: string;
+	memberLevel: number;
+	joinedAt: string;
+	nextChallengesRefresh?: string;
+}
+
 export class PlayerApiClient extends BaseApiClient {
 	// POST /api/players
 	async create(data: { allyCode: string; discordId: string; name?: string; playerId?: string; isMain?: boolean }): Promise<Player> {
@@ -60,5 +68,13 @@ export class PlayerApiClient extends BaseApiClient {
 		await this.request<void>(`/api/players/${allyCode}`, {
 			method: 'DELETE'
 		});
+	}
+
+	// GET /api/players/:allyCode/guild-membership
+	async getGuildMembership(allyCode: string): Promise<PlayerGuildMembership | null> {
+		const response = await this.request<{ membership: PlayerGuildMembership | null }>(
+			`/api/players/${allyCode}/guild-membership`
+		);
+		return response.membership;
 	}
 }
