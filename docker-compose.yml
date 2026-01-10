@@ -18,5 +18,4 @@ services:
 networks:
   grakchawwaa-network:
     external: true
-    name: grakchawwaa-backend_grakchawwaa-network
 
