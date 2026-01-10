@@ -149,4 +149,35 @@ export class GuildApiClient extends BaseApiClient {
 			method: 'POST'
 		});
 	}
+
+	// POST /api/guilds/verify-registration - Verify user can register guild
+	async verifyRegistration(allyCode: string): Promise<{
+		canRegister: boolean;
+		guildId?: string;
+		guildName?: string;
+		playerName?: string;
+		message?: string;
+	}> {
+		return this.request(`/api/guilds/verify-registration`, {
+			method: 'POST',
+			body: JSON.stringify({ allyCode })
+		});
+	}
+
+	// GET /api/guilds/:id/roster - Get guild roster for anniversaries
+	async getRoster(guildId: string): Promise<{
+		guildId: string;
+		guildName: string;
+		members: Array<{
+			playerId: string;
+			playerName: string;
+			allyCode?: number;
+			memberLevel: number;
+			guildJoinTime: number;
+			playerLevel: number;
+			galacticPower: string;
+		}>;
+	}> {
+		return this.request(`/api/guilds/${guildId}/roster`);
+	}
 }

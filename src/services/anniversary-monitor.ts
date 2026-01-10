@@ -1,5 +1,4 @@
 import { container } from "@sapphire/pieces"
-import { ComlinkGuildData, ComlinkGuildMember } from "@swgoh-utils/comlink"
 import { TextChannel } from "discord.js"
 import { DiscordBotClient } from "../discord-bot-client"
 
@@ -8,6 +7,16 @@ interface MemberAnniversary {
   name: string
   years: number
   joinTime: number
+}
+
+interface GuildMember {
+  playerId: string
+  playerName: string
+  allyCode?: number
+  memberLevel: number
+  guildJoinTime: number
+  playerLevel: number
+  galacticPower: string
 }
 
 export class AnniversaryMonitorService {
@@ -113,15 +122,15 @@ export class AnniversaryMonitorService {
     try {
       console.log(`Processing anniversaries for guild ${guildId}`)
 
-      const guildData = await this.fetchGuildData(guildId)
-      if (!guildData) return
+      const rosterData = await this.fetchGuildRoster(guildId)
+      if (!rosterData) return
 
-      const anniversaries = this.findAnniversaries(guildData.guild.member || [])
+      const anniversaries = this.findAnniversaries(rosterData.members)
 
       if (anniversaries.length > 0) {
         await this.sendAnniversaryMessages(
           channelId,
-          guildData.guild.profile.name,
+          rosterData.guildName,
           anniversaries,
         )
       } else {
@@ -135,23 +144,26 @@ export class AnniversaryMonitorService {
     }
   }
 
-  private async fetchGuildData(
-    guildId: string,
-  ): Promise<ComlinkGuildData | null> {
-    const guildData = await container.cachedComlinkClient.getGuild(
-      guildId,
-      true,
-    )
-    if (!guildData?.guild?.member) {
-      console.error(`No member data found for guild ${guildId}`)
+  private async fetchGuildRoster(guildId: string): Promise<{
+    guildId: string
+    guildName: string
+    members: GuildMember[]
+  } | null> {
+    try {
+      const roster = await container.backendApi.guilds.getRoster(guildId)
+      if (!roster?.members) {
+        console.error(`No member data found for guild ${guildId}`)
+        return null
+      }
+      return roster
+    } catch (error) {
+      console.error(`Error fetching roster for guild ${guildId}:`, error)
       return null
     }
-
-    return guildData
   }
 
   private findAnniversaries(
-    members: ComlinkGuildMember[],
+    members: GuildMember[],
   ): MemberAnniversary[] {
     const anniversaries: MemberAnniversary[] = []
     const today = new Date()
@@ -161,7 +173,7 @@ export class AnniversaryMonitorService {
 
       // Convert guild join timestamp (which is in seconds) to a Date object
       const joinDate = new Date(0) // Start with epoch
-      joinDate.setUTCSeconds(parseInt(member.guildJoinTime))
+      joinDate.setUTCSeconds(member.guildJoinTime)
 
       // Check if today is the anniversary of the join date
       const isAnniversary =
@@ -178,7 +190,7 @@ export class AnniversaryMonitorService {
             id: member.playerId,
             name: member.playerName,
             years: yearsJoined,
-            joinTime: parseInt(member.guildJoinTime),
+            joinTime: member.guildJoinTime,
           })
         }
       }

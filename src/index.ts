@@ -2,8 +2,6 @@ import { container } from "@sapphire/pieces"
 import { BackendApiClient } from "./api"
 import { DiscordBotClient } from "./discord-bot-client"
 import { AnniversaryMonitorService } from "./services/anniversary-monitor"
-import { setupComlinkClient } from "./services/comlink/comlink-service"
-import { setupServices } from "./services/setup-services"
 import { TicketReminderService } from "./services/ticket-reminder"
 import { TicketNotificationService } from "./services/ticket-notification"
 import { ViolationSummaryService } from "./services/violation-summary"
@@ -12,9 +10,6 @@ import { ViolationSummaryService } from "./services/violation-summary"
 const backendApiUrl = process.env.BACKEND_API_URL || "http://localhost:3000"
 container.backendApi = new BackendApiClient(backendApiUrl)
 console.log(`Backend API URL: ${backendApiUrl}`)
-
-setupServices()
-setupComlinkClient()
 
 const client = new DiscordBotClient()
 const summaryService = new ViolationSummaryService(client)
