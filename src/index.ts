@@ -5,7 +5,8 @@ import { DiscordBotClient } from "./discord-bot-client"
 import { AnniversaryMonitorService } from "./services/anniversary-monitor"
 import { setupComlinkClient } from "./services/comlink/comlink-service"
 import { setupServices } from "./services/setup-services"
-import { TicketMonitorService } from "./services/ticket-monitor"
+import { TicketReminderService } from "./services/ticket-reminder"
+import { TicketNotificationService } from "./services/ticket-notification"
 import { ViolationSummaryService } from "./services/violation-summary"
 
 // Initialize backend API client for player commands
@@ -23,9 +24,13 @@ const summaryService = new ViolationSummaryService(client)
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user?.tag}!`)
 
-  // Start the ticket monitoring service
-  const ticketMonitor = new TicketMonitorService(client, summaryService)
-  ticketMonitor.start()
+  // Start the ticket reminder service (sends reminders 1 hour before reset)
+  const ticketReminderService = new TicketReminderService(client)
+  ticketReminderService.start()
+
+  // Start the ticket notification service (sends violation/success notifications after collection)
+  const ticketNotificationService = new TicketNotificationService(client, summaryService)
+  ticketNotificationService.start()
 
   // Start the anniversary monitoring service
   const anniversaryMonitor = new AnniversaryMonitorService(client)

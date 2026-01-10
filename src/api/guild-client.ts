@@ -7,6 +7,7 @@ export interface Guild {
 	nextTicketCollectionRefreshTime?: Date;
 	ticketReminderChannelId?: string;
 	anniversaryChannelId?: string;
+	lastTicketCollectionTime?: Date;
 }
 
 export interface GuildMemberPlayer {
@@ -24,6 +25,22 @@ export interface GuildMember {
 	joinedAt: string; // ISO date string
 	leftAt?: string;
 	isActive: boolean;
+}
+
+export interface MemberTicketInfo {
+	playerId: string;
+	playerName: string;
+	allyCode?: string;
+	discordId?: string;
+	ticketCount: number;
+}
+
+export interface TicketCheckResult {
+	guildId: string;
+	guildName: string;
+	nextChallengesRefresh?: string;
+	memberTickets: MemberTicketInfo[];
+	violatorCount: number;
 }
 
 export class GuildApiClient extends BaseApiClient {
@@ -123,6 +140,13 @@ export class GuildApiClient extends BaseApiClient {
 	async removeMember(guildId: string, allyCode: string): Promise<void> {
 		await this.request<void>(`/api/guilds/${guildId}/members/${allyCode}`, {
 			method: 'DELETE'
+		});
+	}
+
+	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink
+	async checkTickets(guildId: string): Promise<TicketCheckResult> {
+		return this.request<TicketCheckResult>(`/api/guilds/${guildId}/ticket-check`, {
+			method: 'POST'
 		});
 	}
 }
