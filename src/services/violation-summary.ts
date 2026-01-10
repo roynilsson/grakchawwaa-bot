@@ -130,6 +130,9 @@ export class ViolationSummaryService {
 				console.log(
 					`No violations found for ${context.reportLabel.toLowerCase()} summary for guild ${context.guildId}`
 				);
+				await channel.send({
+					content: `**${context.reportLabel} Ticket Summary - ${context.guildName}**\n\nPeriod: Last ${context.daysInPeriod} days\n\n:white_check_mark: No ticket violations recorded during this period. Great job!`
+				});
 				return;
 			}
 

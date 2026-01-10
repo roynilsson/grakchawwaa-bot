@@ -87,18 +87,18 @@ export class AnniversaryMonitorService {
       console.log("Checking guild member anniversaries")
       this.lastRunDate = new Date()
 
-      // Get all registered guilds
-      const guilds = await container.ticketChannelClient.getAllGuilds()
+      // Get all registered guilds from backend API
+      const guilds = await container.backendApi.guilds.list()
 
       for (const guild of guilds) {
         // Only process guilds that have an anniversary channel configured
-        if (!guild.anniversary_channel_id) {
+        if (!guild.anniversaryChannelId) {
           continue
         }
 
         await this.processGuildAnniversaries(
-          guild.guild_id,
-          guild.anniversary_channel_id,
+          guild.id,
+          guild.anniversaryChannelId,
         )
       }
     } catch (error) {
@@ -147,20 +147,6 @@ export class AnniversaryMonitorService {
       return null
     }
 
-    guildData.guild.member.push({
-      playerId: "123",
-      playerName: "Test Player",
-      playerLevel: 85,
-      memberLevel: 1,
-      lastActivityTime: "1684650758",
-      squadPower: 1000,
-      guildJoinTime: "1684650758",
-      galacticPower: "1000",
-      playerTitle: "Test Title",
-      playerPortrait: "Test Portrait",
-      leagueId: "123",
-      memberContribution: [],
-    })
     return guildData
   }
 

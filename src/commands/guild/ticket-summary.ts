@@ -108,8 +108,11 @@ export class TicketSummaryCommand extends Command {
     guildId?: string
     guildName?: string
   }> {
-    // Get the player's ally code
-    const player = await container.playerClient.getPlayer(interaction.user.id)
+    // Get the player's ally code via backend API
+    const players = await container.backendApi.players.list({
+      discordId: interaction.user.id,
+    })
+    const player = players.find((p) => p.isMain) ?? players[0]
     if (!player?.allyCode) {
       return {
         success: false,
@@ -120,11 +123,11 @@ export class TicketSummaryCommand extends Command {
       }
     }
 
-    // Get the player's guild data
-    const playerData = await container.cachedComlinkClient.getPlayer(
+    // Get the player's guild membership via backend API (uses cached Comlink data)
+    const membership = await container.backendApi.players.getGuildMembership(
       player.allyCode,
     )
-    if (!playerData?.guildId || !playerData?.guildName) {
+    if (!membership) {
       return {
         success: false,
         response: {
@@ -133,13 +136,19 @@ export class TicketSummaryCommand extends Command {
       }
     }
 
-    // Check if the player's SW guild is registered for ticket collection
-    const guildSettings =
-      await container.ticketChannelClient.getGuildMessageChannels(
-        playerData.guildId,
-      )
-
-    if (!guildSettings?.ticket_collection_channel_id) {
+    // Check if the player's SW guild is registered in the backend
+    try {
+      const guild = await container.backendApi.guilds.get(membership.guildId)
+      if (!guild.ticketCollectionChannelId) {
+        return {
+          success: false,
+          response: {
+            content:
+              "Your Star Wars guild is not registered for ticket collection. Use `/register-ticket-collection` first.",
+          },
+        }
+      }
+    } catch {
       return {
         success: false,
         response: {
@@ -152,8 +161,8 @@ export class TicketSummaryCommand extends Command {
     return {
       success: true,
       response: { content: "" },
-      guildId: playerData.guildId,
-      guildName: playerData.guildName,
+      guildId: membership.guildId,
+      guildName: membership.guildName,
     }
   }
 }
