@@ -11,11 +11,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "setupHerokuDB": "dotenvx run -f .env.prod -- ts-node infra/setupHerokuDB.ts",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:setup": "docker-compose up -d && ts-node infra/setupDockerDB.ts",
-    "docker:reset": "docker-compose down -v && docker-compose up -d && ts-node infra/setupDockerDB.ts",
     "dev": "dotenvx run -f .env.dev -- ts-node src/index.ts",
     "prod": "dotenvx run -f .env.prod -- ts-node src/index.ts",
     "reset-commands-dev": "dotenvx run -f .env.dev -- ts-node infra/reset-commands.ts",
@@ -35,8 +32,7 @@
     "@sapphire/framework": "^5.4.0",
     "@sapphire/pieces": "^4.4.1",
     "@swgoh-utils/comlink": "^1.4.1",
-    "discord.js": "~14.24.2",
-    "pg": "^8.16.3"
+    "discord.js": "~14.24.2"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.51.1",
@@ -44,7 +40,6 @@
     "@jest/test-sequencer": "^30.2.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
-    "@types/pg": "^8.15.6",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.5.0",
