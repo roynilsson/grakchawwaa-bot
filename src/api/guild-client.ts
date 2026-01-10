@@ -1,13 +1,12 @@
 import { BaseApiClient } from './base-client';
 
 export interface Guild {
-	guildId: string;
+	id: string;
 	name: string;
 	ticketCollectionChannelId?: string;
-	nextTicketRefreshTime?: Date;
+	nextTicketCollectionRefreshTime?: Date;
 	ticketReminderChannelId?: string;
 	anniversaryChannelId?: string;
-	ticketResetHour?: number;
 }
 
 export interface GuildMember {
@@ -47,9 +46,9 @@ export class GuildApiClient extends BaseApiClient {
 		data: {
 			name?: string;
 			ticketCollectionChannelId?: string | null;
+			nextTicketCollectionRefreshTime?: string | null;
 			ticketReminderChannelId?: string | null;
 			anniversaryChannelId?: string | null;
-			ticketResetHour?: number;
 		}
 	): Promise<Guild> {
 		const response = await this.request<{ guild: Guild }>(`/api/guilds/${guildId}`, {
