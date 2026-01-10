@@ -9,12 +9,20 @@ export interface Guild {
 	anniversaryChannelId?: string;
 }
 
-export interface GuildMember {
-	guildId: string;
+export interface GuildMemberPlayer {
 	allyCode: string;
+	playerId?: string;
+	name?: string;
+	playerLevel?: number;
+	galacticPower?: number;
+	lastActivityTime?: string; // ISO date string
+}
+
+export interface GuildMember {
+	player: GuildMemberPlayer;
 	memberLevel: number;
-	joinedAt: Date;
-	leftAt?: Date;
+	joinedAt: string; // ISO date string
+	leftAt?: string;
 	isActive: boolean;
 }
 

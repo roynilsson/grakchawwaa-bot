@@ -1,17 +1,29 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
-import { ComlinkGuildMember } from "@swgoh-utils/comlink"
+import type { AutocompleteInteraction } from "discord.js"
 import { EmbedBuilder } from "discord.js"
-import { CachedComlinkClient } from "../../services/comlink/cached-comlink-client"
+import type { GuildMember } from "../../api/guild-client"
+import type { PlayerGuildMembership } from "../../api/player-client"
+
+interface CommandResponse<T = undefined> {
+  success: boolean
+  response: {
+    content: string
+    ephemeral?: boolean
+  }
+  value?: T
+}
+
+interface GuildMembershipData {
+  allyCode: string
+  membership: PlayerGuildMembership
+}
 
 export class GetGuildMembersCommand extends Command {
-  private comlinkClient: CachedComlinkClient
-
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, {
       ...options,
     })
-    this.comlinkClient = CachedComlinkClient.getInstance()
   }
 
   public override registerApplicationCommands(registry: Command.Registry) {
@@ -25,9 +37,41 @@ export class GetGuildMembersCommand extends Command {
               .setName("name")
               .setDescription("Filter members by name (not case-sensitive)")
               .setRequired(false),
+          )
+          .addStringOption((option) =>
+            option
+              .setName("ally-code")
+              .setDescription("Select one of your registered accounts")
+              .setRequired(false)
+              .setAutocomplete(true),
           ),
       { idHints: ["1374077113417732208", "1374084340669218846"] },
     )
+  }
+
+  public override async autocompleteRun(interaction: AutocompleteInteraction) {
+    const focusedOption = interaction.options.getFocused(true)
+
+    if (focusedOption.name === "ally-code") {
+      try {
+        const players = await container.backendApi.players.list({
+          discordId: interaction.user.id,
+        })
+
+        const choices = players.map(
+          (player: { name?: string; allyCode: string; isMain?: boolean }) => ({
+            name: player.name
+              ? `${player.name} (${player.allyCode})${player.isMain ? " - Main" : ""}`
+              : `${player.allyCode}${player.isMain ? " - Main" : ""}`,
+            value: player.allyCode,
+          }),
+        )
+
+        return interaction.respond(choices.slice(0, 25))
+      } catch {
+        return interaction.respond([])
+      }
+    }
   }
 
   public override async chatInputRun(
@@ -39,45 +83,40 @@ export class GetGuildMembersCommand extends Command {
       // Get the name filter if provided
       const nameFilter = interaction.options.getString("name")?.toLowerCase()
 
-      // Get the player data to find their guild
-      const player = await container.playerClient.getPlayer(interaction.user.id)
-      if (!player?.allyCode) {
-        return interaction.editReply({
-          content:
-            "You don't have a registered ally code. Please register with `/register-player` first.",
-        })
+      // Get ally code (from autocomplete selection or user's main account)
+      const allyCodeResult = await this.resolveAllyCode(interaction)
+      if (!allyCodeResult.success || !allyCodeResult.value) {
+        return await interaction.editReply(allyCodeResult.response)
       }
 
-      // Get player data from comlink to get the guild ID
-      const playerData = await container.comlinkClient.getPlayer(
-        player.allyCode,
+      // Get guild membership from backend
+      const membershipResult = await this.getGuildMembership(
+        allyCodeResult.value,
       )
-      if (!playerData?.guildId) {
-        return interaction.editReply({
-          content: "Could not find a guild for your account.",
-        })
+      if (!membershipResult.success || !membershipResult.value) {
+        return await interaction.editReply(membershipResult.response)
       }
 
-      // Get guild data with all members
-      const guildData = await this.comlinkClient.getGuild(
-        playerData.guildId,
-        true,
+      // Get guild members from backend
+      const members = await container.backendApi.guilds.getMembers(
+        membershipResult.value.membership.guildId,
       )
-      if (!guildData?.guild?.member || guildData.guild.member.length === 0) {
-        return interaction.editReply({
+
+      if (!members || members.length === 0) {
+        return await interaction.editReply({
           content: "Could not retrieve guild members.",
         })
       }
 
       // Filter members by name if a filter was provided
-      let members = guildData.guild.member
+      let filteredMembers = members
       if (nameFilter) {
-        members = members.filter((member) =>
-          member.playerName.toLowerCase().includes(nameFilter),
+        filteredMembers = members.filter((member) =>
+          member.player.name?.toLowerCase().includes(nameFilter),
         )
 
-        if (members.length === 0) {
-          return interaction.editReply({
+        if (filteredMembers.length === 0) {
+          return await interaction.editReply({
             content: `No members found with name containing "${nameFilter}".`,
           })
         }
@@ -86,28 +125,88 @@ export class GetGuildMembersCommand extends Command {
       // Format and send the member information
       await this.sendMemberList(
         interaction,
-        members,
-        playerData.guildName || "Your Guild",
+        filteredMembers,
+        membershipResult.value.membership.guildName,
       )
     } catch (error) {
-      console.error("Error in get-guild-members command:", error)
+      container.logger.error("Error in get-guild-members command:", error)
       if (!interaction.deferred) {
-        return interaction.reply({
+        return await interaction.reply({
           content:
             "An error occurred while processing your request. Please try again later.",
           ephemeral: true,
         })
       }
-      return interaction.editReply({
+      return await interaction.editReply({
         content:
           "An error occurred while processing your request. Please try again later.",
       })
     }
   }
 
+  private async resolveAllyCode(
+    interaction: Command.ChatInputCommandInteraction,
+  ): Promise<CommandResponse<string>> {
+    const inputAllyCode = interaction.options.getString("ally-code")
+
+    if (inputAllyCode) {
+      // User selected from autocomplete
+      return {
+        success: true,
+        response: { content: "" },
+        value: inputAllyCode.replace(/-/g, ""),
+      }
+    }
+
+    // No ally code provided, use main account
+    const players = await container.backendApi.players.list({
+      discordId: interaction.user.id,
+      isMain: true,
+    })
+
+    const mainPlayer = players[0]
+    if (!mainPlayer) {
+      return {
+        success: false,
+        response: {
+          content:
+            "You don't have a registered ally code. Please register with `/register-player` first.",
+        },
+      }
+    }
+
+    return {
+      success: true,
+      response: { content: "" },
+      value: mainPlayer.allyCode,
+    }
+  }
+
+  private async getGuildMembership(
+    allyCode: string,
+  ): Promise<CommandResponse<GuildMembershipData>> {
+    const membership =
+      await container.backendApi.players.getGuildMembership(allyCode)
+
+    if (!membership) {
+      return {
+        success: false,
+        response: {
+          content: `Player ${allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/register-guild\` first.`,
+        },
+      }
+    }
+
+    return {
+      success: true,
+      response: { content: "" },
+      value: { allyCode, membership },
+    }
+  }
+
   private async sendMemberList(
     interaction: Command.ChatInputCommandInteraction,
-    members: ComlinkGuildMember[],
+    members: GuildMember[],
     guildName: string,
   ) {
     if (members.length === 0) {
@@ -148,7 +247,7 @@ export class GetGuildMembersCommand extends Command {
   }
 
   private createMemberEmbed(
-    members: ComlinkGuildMember[],
+    members: GuildMember[],
     guildName: string,
     page: number,
     totalPages: number,
@@ -162,36 +261,34 @@ export class GetGuildMembersCommand extends Command {
     members.forEach((member, index) => {
       const position = (page - 1) * 10 + index + 1
 
-      const formattedGP = member.galacticPower
-        ? `${parseInt(member.galacticPower.replace(/,/g, "")).toLocaleString()}`
+      const formattedGP = member.player.galacticPower
+        ? member.player.galacticPower.toLocaleString()
         : "N/A"
 
       // Format lastActivityTime as a time ago string
       let lastActivityAgo = "N/A"
-      if (member.lastActivityTime) {
-        lastActivityAgo = this.formatTimeAgo(
-          parseInt(member.lastActivityTime),
-          true,
-        )
+      if (member.player.lastActivityTime) {
+        const lastActivityDate = new Date(member.player.lastActivityTime)
+        lastActivityAgo = this.formatTimeAgo(lastActivityDate.getTime(), true)
       }
 
-      let joinTime: Date | null = new Date(0)
-      if (member.guildJoinTime) {
-        joinTime.setUTCSeconds(parseInt(member.guildJoinTime))
-      } else {
-        joinTime = null
-      }
-
-      const formattedJoinTime = joinTime
-        ? joinTime.toISOString().slice(0, 10) +
+      // Format join time
+      let formattedJoinTime = "N/A"
+      if (member.joinedAt) {
+        const joinTime = new Date(member.joinedAt)
+        formattedJoinTime =
+          joinTime.toISOString().slice(0, 10) +
           " " +
           joinTime.toTimeString().slice(0, 5)
-        : "N/A"
+      }
+
+      const playerName = member.player.name || member.player.allyCode
+      const playerLevel = member.player.playerLevel || "?"
 
       embed.addFields({
-        name: `${position}. ${member.playerName} (Lvl ${member.playerLevel})`,
+        name: `${position}. ${playerName} (Lvl ${playerLevel})`,
         value:
-          `**ID:** ${member.playerId}\n` +
+          `**Ally Code:** ${member.player.allyCode}\n` +
           `**GP:** ${formattedGP}\n` +
           `**Last Active:** ${lastActivityAgo}\n` +
           `**Joined Guild:** ${formattedJoinTime}`,
