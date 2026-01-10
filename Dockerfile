@@ -1,21 +1,20 @@
 FROM node:24-alpine
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Set working directory
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Expose port (if needed for health checks)
+EXPOSE 3000
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN pnpm build
+# Use entrypoint to install deps at runtime
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Default command (can be overridden in docker-compose)
-CMD ["pnpm", "start"]
+CMD ["pnpm", "dev"]

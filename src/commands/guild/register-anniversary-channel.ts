@@ -1,6 +1,11 @@
 import { Command } from "@sapphire/framework"
 import { container } from "@sapphire/pieces"
-import { channelMention, TextChannel } from "discord.js"
+import {
+  channelMention,
+  TextChannel,
+  type AutocompleteInteraction,
+} from "discord.js"
+import type { PlayerGuildMembership } from "../../api/player-client"
 
 interface CommandResponse<T = undefined> {
   success: boolean
@@ -11,19 +16,9 @@ interface CommandResponse<T = undefined> {
   value?: T
 }
 
-interface ComlinkGuildMember {
-  playerId: string
-  memberLevel: number
-}
-
-interface ComlinkPlayerData {
-  playerId: string
-  guildId?: string
-  guildName?: string
-}
-
-interface ComlinkGuildData {
-  member?: ComlinkGuildMember[]
+interface GuildMembershipData {
+  allyCode: string
+  membership: PlayerGuildMembership
 }
 
 export class RegisterAnniversaryChannelCommand extends Command {
@@ -52,60 +47,99 @@ export class RegisterAnniversaryChannelCommand extends Command {
           .addStringOption((option) =>
             option
               .setName("ally-code")
-              .setDescription("Ally code of a guild member (optional)")
-              .setRequired(false),
+              .setDescription("Select one of your registered accounts")
+              .setRequired(false)
+              .setAutocomplete(true),
           ),
       { idHints: ["1374799120535126056"] },
     )
+  }
+
+  public override async autocompleteRun(interaction: AutocompleteInteraction) {
+    const focusedOption = interaction.options.getFocused(true)
+
+    if (focusedOption.name === "ally-code") {
+      try {
+        const players = await container.backendApi.players.list({
+          discordId: interaction.user.id,
+        })
+
+        const choices = players.map(
+          (player: { name?: string; allyCode: string; isMain?: boolean }) => ({
+            name: player.name
+              ? `${player.name} (${player.allyCode})${player.isMain ? " - Main" : ""}`
+              : `${player.allyCode}${player.isMain ? " - Main" : ""}`,
+            value: player.allyCode,
+          }),
+        )
+
+        return interaction.respond(choices.slice(0, 25))
+      } catch {
+        return interaction.respond([])
+      }
+    }
   }
 
   public override async chatInputRun(
     interaction: Command.ChatInputCommandInteraction,
   ) {
     try {
-      // Validate initial requirements before deferring
+      // Validate Discord channel
       const channel = this.validateChannel(interaction)
       if (!channel.success || !channel.value) {
         return await interaction.reply(channel.response)
       }
 
-      const allyCodeResponse = await this.resolveAllyCode(interaction)
-      if (!allyCodeResponse.success || !allyCodeResponse.value) {
-        return await interaction.reply(allyCodeResponse.response)
-      }
-
-      // If initial validations pass, defer the reply for longer operations
+      // Defer reply for API calls
       await interaction.deferReply()
 
-      const guildData = await this.fetchGuildData(allyCodeResponse.value)
-      if (!guildData.success || !guildData.value) {
-        return await interaction.editReply(guildData.response)
+      // Get ally code (from autocomplete selection or user's main account)
+      const allyCodeResult = await this.resolveAllyCode(interaction)
+      if (!allyCodeResult.success || !allyCodeResult.value) {
+        return await interaction.editReply(allyCodeResult.response)
       }
 
-      const hasPermission = await this.checkGuildPermission(
-        guildData.value.playerData,
-        guildData.value.guild,
+      // Validate ally code belongs to this user
+      const validationResult = await this.validateAllyCodeOwnership(
+        interaction.user.id,
+        allyCodeResult.value,
       )
-      if (!hasPermission.success) {
-        return await interaction.editReply(hasPermission.response)
+      if (!validationResult.success) {
+        return await interaction.editReply(validationResult.response)
       }
 
-      const registration = await this.registerGuildChannel(
-        guildData.value.guildId,
+      // Get guild membership from backend
+      const membershipResult = await this.getGuildMembership(
+        allyCodeResult.value,
+      )
+      if (!membershipResult.success || !membershipResult.value) {
+        return await interaction.editReply(membershipResult.response)
+      }
+
+      // Check permission (must be officer or leader)
+      if (membershipResult.value.membership.memberLevel < 3) {
+        return await interaction.editReply({
+          content:
+            "Only guild leaders and officers can register the guild for anniversary notifications.",
+        })
+      }
+
+      // Register the guild channel
+      const registrationResult = await this.registerGuildChannel(
+        membershipResult.value.membership.guildId,
         channel.value.id,
       )
-      if (!registration.success) {
-        return await interaction.editReply(registration.response)
+      if (!registrationResult.success) {
+        return await interaction.editReply(registrationResult.response)
       }
 
       return await interaction.editReply({
         content: this.formatSuccessMessage(
           channel.value.id,
-          guildData.value.guildName,
+          membershipResult.value.membership.guildName,
         ),
       })
     } catch (error) {
-      // If we haven't deferred yet, use reply instead of editReply
       if (!interaction.deferred) {
         return await interaction.reply({
           content:
@@ -114,7 +148,10 @@ export class RegisterAnniversaryChannelCommand extends Command {
         })
       }
 
-      console.error("Error in register-anniversary-channel command:", error)
+      container.logger.error(
+        "Error in register-anniversary-channel command:",
+        error,
+      )
       return await interaction.editReply({
         content:
           "An error occurred while processing your request. Please try again later.",
@@ -146,109 +183,96 @@ export class RegisterAnniversaryChannelCommand extends Command {
     interaction: Command.ChatInputCommandInteraction,
   ): Promise<CommandResponse<string>> {
     const inputAllyCode = interaction.options.getString("ally-code")
-    const allyCode = inputAllyCode?.replace(/-/g, "") ?? null
 
-    if (!allyCode) {
-      const player = await container.playerClient.getPlayer(interaction.user.id)
-      if (!player?.allyCode) {
-        return {
-          success: false,
-          response: {
-            content:
-              "You don't have a registered ally code. Please provide an ally code or register with `/register-player`.",
-            ephemeral: true,
-          },
-        }
-      }
+    if (inputAllyCode) {
+      // User selected from autocomplete
       return {
         success: true,
         response: { content: "" },
-        value: player.allyCode,
+        value: inputAllyCode.replace(/-/g, ""),
       }
     }
 
-    return {
-      success: true,
-      response: { content: "" },
-      value: allyCode,
-    }
-  }
+    // No ally code provided, use main account
+    const players = await container.backendApi.players.list({
+      discordId: interaction.user.id,
+      isMain: true,
+    })
 
-  private async fetchGuildData(allyCode: string): Promise<
-    CommandResponse<{
-      guildId: string
-      guildName: string
-      playerData: ComlinkPlayerData
-      guild: ComlinkGuildData
-    }>
-  > {
-    const playerData = await container.comlinkClient.getPlayer(allyCode)
-    if (!playerData?.guildId) {
-      return {
-        success: false,
-        response: {
-          content: `Could not find a guild for ally code ${allyCode}. Please make sure the ally code belongs to a guild member.`,
-        },
-      }
-    }
-
-    const guildData = await container.comlinkClient.getGuild(
-      playerData.guildId,
-      true,
-    )
-    if (!guildData?.guild) {
-      return {
-        success: false,
-        response: {
-          content: `Could not retrieve guild data for guild: ${
-            playerData.guildName || "Unknown Guild"
-          }. Please try again later.`,
-        },
-      }
-    }
-
-    return {
-      success: true,
-      response: { content: "" },
-      value: {
-        guildId: playerData.guildId,
-        guildName: playerData.guildName || "Unknown Guild",
-        playerData,
-        guild: guildData.guild,
-      },
-    }
-  }
-
-  private async checkGuildPermission(
-    playerData: ComlinkPlayerData,
-    guildData: ComlinkGuildData,
-  ): Promise<CommandResponse> {
-    const guildMember = guildData.member?.find(
-      (m: ComlinkGuildMember) => m.playerId === playerData.playerId,
-    )
-    if (!guildMember || guildMember.memberLevel < 3) {
+    const mainPlayer = players[0]
+    if (!mainPlayer) {
       return {
         success: false,
         response: {
           content:
-            "Only guild leaders and officers can register the guild for anniversary notifications.",
+            "You don't have a registered ally code. Please register with `/register-player` first.",
         },
       }
     }
+
+    return {
+      success: true,
+      response: { content: "" },
+      value: mainPlayer.allyCode,
+    }
+  }
+
+  private async validateAllyCodeOwnership(
+    discordId: string,
+    allyCode: string,
+  ): Promise<CommandResponse> {
+    const players = await container.backendApi.players.list({ discordId })
+    const ownsAllyCode = players.some(
+      (p: { allyCode: string }) => p.allyCode === allyCode,
+    )
+
+    if (!ownsAllyCode) {
+      return {
+        success: false,
+        response: {
+          content:
+            "You can only register guilds using your own registered ally codes.",
+        },
+      }
+    }
+
     return { success: true, response: { content: "" } }
+  }
+
+  private async getGuildMembership(
+    allyCode: string,
+  ): Promise<CommandResponse<GuildMembershipData>> {
+    const membership =
+      await container.backendApi.players.getGuildMembership(allyCode)
+
+    if (!membership) {
+      return {
+        success: false,
+        response: {
+          content: `Player ${allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/register-guild\` first.`,
+        },
+      }
+    }
+
+    return {
+      success: true,
+      response: { content: "" },
+      value: { allyCode, membership },
+    }
   }
 
   private async registerGuildChannel(
     guildId: string,
     channelId: string,
   ): Promise<CommandResponse> {
-    const success =
-      await container.ticketChannelClient.registerAnniversaryChannel(
-        guildId,
-        channelId,
-      )
+    try {
+      await container.backendApi.guilds.update(guildId, {
+        anniversaryChannelId: channelId,
+      })
 
-    if (!success) {
+      return { success: true, response: { content: "" } }
+    } catch (error) {
+      container.logger.error("Failed to register anniversary channel:", error)
       return {
         success: false,
         response: {
@@ -257,13 +281,9 @@ export class RegisterAnniversaryChannelCommand extends Command {
         },
       }
     }
-
-    return { success: true, response: { content: "" } }
   }
 
   private formatSuccessMessage(channelId: string, guildName: string): string {
-    return `Successfully registered ${channelMention(
-      channelId,
-    )} for anniversary notifications for guild: ${guildName}`
+    return `Successfully registered ${channelMention(channelId)} for anniversary notifications for guild: **${guildName}**`
   }
 }
