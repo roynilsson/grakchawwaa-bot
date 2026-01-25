@@ -266,8 +266,25 @@ export class RegisterAnniversaryChannelCommand extends Command {
     channelId: string,
   ): Promise<CommandResponse> {
     try {
-      await container.backendApi.guilds.update(guildId, {
-        anniversaryChannelId: channelId,
+      // Find the anniversary automation for this guild
+      const automations = await container.backendApi.automations.listByGuild(guildId)
+      const anniversaryAutomation = automations.find(
+        (a) => a.automationType === "anniversary",
+      )
+
+      if (!anniversaryAutomation) {
+        return {
+          success: false,
+          response: {
+            content:
+              "Anniversary automation not found for this guild. Please contact support.",
+          },
+        }
+      }
+
+      // Update the automation config with the channel ID
+      await container.backendApi.automations.update(anniversaryAutomation.id, {
+        config: { ...anniversaryAutomation.config, channelId },
       })
 
       return { success: true, response: { content: "" } }

@@ -2,9 +2,8 @@ import { container } from "@sapphire/pieces"
 import { BackendApiClient } from "./api"
 import { DiscordBotClient } from "./discord-bot-client"
 import { AnniversaryMonitorService } from "./services/anniversary-monitor"
-import { TicketReminderService } from "./services/ticket-reminder"
-import { TicketNotificationService } from "./services/ticket-notification"
 import { ViolationSummaryService } from "./services/violation-summary"
+import { NotificationWorker } from "./workers/notificationWorker"
 
 // Initialize backend API client
 const backendApiUrl = process.env.BACKEND_API_URL || "http://localhost:3000"
@@ -16,13 +15,9 @@ const summaryService = new ViolationSummaryService(client)
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user?.tag}!`)
 
-  // Start the ticket reminder service (sends reminders 1 hour before reset)
-  const ticketReminderService = new TicketReminderService(client)
-  ticketReminderService.start()
-
-  // Start the ticket notification service (sends violation/success notifications after collection)
-  const ticketNotificationService = new TicketNotificationService(client, summaryService)
-  ticketNotificationService.start()
+  // Start the notification worker (handles ticket_reminder and ticket_collection automations)
+  const notificationWorker = new NotificationWorker(client)
+  notificationWorker.start()
 
   // Start the anniversary monitoring service
   const anniversaryMonitor = new AnniversaryMonitorService(client)

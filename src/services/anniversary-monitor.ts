@@ -100,15 +100,19 @@ export class AnniversaryMonitorService {
       const guilds = await container.backendApi.guilds.list()
 
       for (const guild of guilds) {
+        // Get the anniversary automation for this guild
+        const automations = await container.backendApi.automations.listByGuild(guild.id)
+        const anniversaryAutomation = automations.find(
+          (a) => a.automationType === "anniversary" && a.enabled
+        )
+
         // Only process guilds that have an anniversary channel configured
-        if (!guild.anniversaryChannelId) {
+        const channelId = anniversaryAutomation?.config?.channelId as string | undefined
+        if (!channelId) {
           continue
         }
 
-        await this.processGuildAnniversaries(
-          guild.id,
-          guild.anniversaryChannelId,
-        )
+        await this.processGuildAnniversaries(guild.id, channelId)
       }
     } catch (error) {
       console.error("Error checking guild anniversaries:", error)

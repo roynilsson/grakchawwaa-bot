@@ -129,8 +129,8 @@ export class RegisterTicketCollectionCommand extends Command {
         })
       }
 
-      // Register the guild channel
-      const registrationResult = await this.registerGuildChannel(
+      // Register the guild channel via automations
+      const registrationResult = await this.registerGuildAutomations(
         membershipResult.value.membership,
         channel.value.id,
         reminderChannel.value?.id ?? null,
@@ -144,7 +144,6 @@ export class RegisterTicketCollectionCommand extends Command {
           channel.value.id,
           reminderChannel.value?.id ?? null,
           membershipResult.value.membership.guildName,
-          membershipResult.value.membership.nextChallengesRefresh,
         ),
       })
     } catch (error) {
@@ -292,15 +291,6 @@ export class RegisterTicketCollectionCommand extends Command {
       }
     }
 
-    if (!membership.nextChallengesRefresh) {
-      return {
-        success: false,
-        response: {
-          content: `Guild data is not yet available. Please wait for the next guild sync or trigger a manual sync.`,
-        },
-      }
-    }
-
     return {
       success: true,
       response: { content: "" },
@@ -308,17 +298,32 @@ export class RegisterTicketCollectionCommand extends Command {
     }
   }
 
-  private async registerGuildChannel(
+  private async registerGuildAutomations(
     membership: PlayerGuildMembership,
     channelId: string,
     reminderChannelId: string | null,
   ): Promise<CommandResponse> {
     try {
-      await container.backendApi.guilds.update(membership.guildId, {
-        ticketCollectionChannelId: channelId,
-        nextTicketCollectionRefreshTime: membership.nextChallengesRefresh,
-        ticketReminderChannelId: reminderChannelId,
-      })
+      // Get automations for this guild
+      const automations = await container.backendApi.automations.listByGuild(membership.guildId)
+
+      // Find and update ticket_collection automation
+      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
+      if (ticketCollection) {
+        await container.backendApi.automations.update(ticketCollection.id, {
+          config: { ...ticketCollection.config, channelId }
+        })
+      }
+
+      // Find and update ticket_reminder automation
+      if (reminderChannelId) {
+        const ticketReminder = automations.find(a => a.automationType === 'ticket_reminder')
+        if (ticketReminder) {
+          await container.backendApi.automations.update(ticketReminder.id, {
+            config: { ...ticketReminder.config, channelId: reminderChannelId }
+          })
+        }
+      }
 
       return { success: true, response: { content: "" } }
     } catch (error) {
@@ -340,15 +345,11 @@ export class RegisterTicketCollectionCommand extends Command {
     channelId: string,
     reminderChannelId: string | null,
     guildName: string,
-    nextRefreshTime?: string,
   ): string {
-    const refreshLine = nextRefreshTime
-      ? `\nNext ticket reset time: ${new Date(nextRefreshTime).toLocaleString()}`
-      : ""
     const reminderLine = reminderChannelId
       ? `\nTicket reminder channel: ${channelMention(reminderChannelId)}`
       : ""
 
-    return `Successfully registered ${channelMention(channelId)} for ticket collection monitoring for guild: **${guildName}**${refreshLine}${reminderLine}`
+    return `Successfully registered ${channelMention(channelId)} for ticket collection monitoring for guild: **${guildName}**${reminderLine}`
   }
 }

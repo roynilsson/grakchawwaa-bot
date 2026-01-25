@@ -136,10 +136,12 @@ export class TicketSummaryCommand extends Command {
       }
     }
 
-    // Check if the player's SW guild is registered in the backend
+    // Check if the player's SW guild has ticket collection configured
     try {
-      const guild = await container.backendApi.guilds.get(membership.guildId)
-      if (!guild.ticketCollectionChannelId) {
+      const automations = await container.backendApi.automations.listByGuild(membership.guildId)
+      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
+      const config = ticketCollection?.config as { channelId?: string } | undefined
+      if (!config?.channelId) {
         return {
           success: false,
           response: {

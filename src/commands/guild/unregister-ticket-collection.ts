@@ -106,8 +106,8 @@ export class UnregisterTicketCollectionCommand extends Command {
         })
       }
 
-      // Unregister the guild channel
-      const unregistrationResult = await this.unregisterGuildChannel(
+      // Unregister the guild automations
+      const unregistrationResult = await this.unregisterGuildAutomations(
         membershipResult.value.membership.guildId,
       )
       if (!unregistrationResult.success) {
@@ -219,15 +219,30 @@ export class UnregisterTicketCollectionCommand extends Command {
     }
   }
 
-  private async unregisterGuildChannel(
+  private async unregisterGuildAutomations(
     guildId: string,
   ): Promise<CommandResponse> {
     try {
-      await container.backendApi.guilds.update(guildId, {
-        ticketCollectionChannelId: null,
-        nextTicketCollectionRefreshTime: null,
-        ticketReminderChannelId: null,
-      })
+      // Get automations for this guild
+      const automations = await container.backendApi.automations.listByGuild(guildId)
+
+      // Find and clear ticket_collection automation channel
+      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
+      if (ticketCollection) {
+        const { channelId, ...restConfig } = ticketCollection.config as Record<string, unknown>
+        await container.backendApi.automations.update(ticketCollection.id, {
+          config: restConfig
+        })
+      }
+
+      // Find and clear ticket_reminder automation channel
+      const ticketReminder = automations.find(a => a.automationType === 'ticket_reminder')
+      if (ticketReminder) {
+        const { channelId, ...restConfig } = ticketReminder.config as Record<string, unknown>
+        await container.backendApi.automations.update(ticketReminder.id, {
+          config: restConfig
+        })
+      }
 
       return { success: true, response: { content: "" } }
     } catch (error) {

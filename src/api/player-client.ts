@@ -13,7 +13,6 @@ export interface PlayerGuildMembership {
 	guildName: string;
 	memberLevel: number;
 	joinedAt: string;
-	nextChallengesRefresh?: string;
 }
 
 export class PlayerApiClient extends BaseApiClient {
