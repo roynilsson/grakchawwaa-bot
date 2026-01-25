@@ -30,6 +30,12 @@ export interface MemberTicketInfo {
 	ticketCount: number;
 }
 
+export interface GuildChannel {
+	id: number;
+	discordChannelId: string;
+	name: string;
+}
+
 export interface TicketCheckResult {
 	guildId: string;
 	guildName: string;
@@ -170,5 +176,44 @@ export class GuildApiClient extends BaseApiClient {
 		}>;
 	}> {
 		return this.request(`/api/guilds/${guildId}/roster`);
+	}
+
+	// GET /api/guilds/:guildId/channels - List approved channels
+	async listChannels(guildId: string): Promise<GuildChannel[]> {
+		const response = await this.request<{ channels: GuildChannel[] }>(
+			`/api/guilds/${guildId}/channels`
+		);
+		return response.channels;
+	}
+
+	// POST /api/guilds/:guildId/channels - Add approved channel
+	async addChannel(
+		guildId: string,
+		data: { discordChannelId: string; name: string }
+	): Promise<GuildChannel> {
+		const response = await this.request<{ channel: GuildChannel }>(
+			`/api/guilds/${guildId}/channels`,
+			{
+				method: 'POST',
+				body: JSON.stringify(data)
+			}
+		);
+		return response.channel;
+	}
+
+	// DELETE /api/guilds/:guildId/channels/:id - Remove approved channel
+	async removeChannel(guildId: string, channelId: number): Promise<void> {
+		await this.request<void>(`/api/guilds/${guildId}/channels/${channelId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	// GET channel by Discord ID (convenience method)
+	async findChannelByDiscordId(
+		guildId: string,
+		discordChannelId: string
+	): Promise<GuildChannel | null> {
+		const channels = await this.listChannels(guildId);
+		return channels.find((c) => c.discordChannelId === discordChannelId) ?? null;
 	}
 }
