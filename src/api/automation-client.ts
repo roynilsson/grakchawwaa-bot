@@ -1,5 +1,11 @@
 import { BaseApiClient } from './base-client';
 
+export interface ResolvedChannel {
+	id: number;
+	discordChannelId: string;
+	name: string;
+}
+
 export interface Automation {
 	id: number;
 	guildId: string;
@@ -10,6 +16,7 @@ export interface Automation {
 	nextRunAt?: string;
 	lastRunAt?: string;
 	config: Record<string, unknown>;
+	resolvedChannel?: ResolvedChannel;
 	enabled: boolean;
 	createdAt: string;
 	updatedAt: string;

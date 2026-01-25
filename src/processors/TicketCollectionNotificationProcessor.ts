@@ -10,10 +10,6 @@ const TICKET_THRESHOLD = 600;
 const EMBED_FIELD_LIMIT = 25;
 const EMBEDS_PER_MESSAGE = 10;
 
-interface TicketCollectionConfig {
-	channelId?: string;
-}
-
 export class TicketCollectionNotificationProcessor implements NotificationProcessor {
 	private client: DiscordBotClient;
 	private summaryService: ViolationSummaryService;
@@ -24,9 +20,9 @@ export class TicketCollectionNotificationProcessor implements NotificationProces
 	}
 
 	async process(automation: Automation): Promise<NotificationResult> {
-		const config = automation.config as TicketCollectionConfig;
+		const channelId = automation.resolvedChannel?.discordChannelId;
 
-		if (!config.channelId) {
+		if (!channelId) {
 			return { success: true, message: 'No channel configured, skipping' };
 		}
 
@@ -43,13 +39,13 @@ export class TicketCollectionNotificationProcessor implements NotificationProces
 			const guildName = guild?.name || 'Unknown Guild';
 
 			if (violations.length > 0) {
-				await this.sendViolationNotification(config.channelId, guildName, violations);
+				await this.sendViolationNotification(channelId, guildName, violations);
 			} else {
-				await this.sendSuccessNotification(config.channelId, guildName);
+				await this.sendSuccessNotification(channelId, guildName);
 			}
 
 			// Check and generate summaries
-			await this.checkAndGenerateSummaries(automation.guildId, config.channelId, guildName);
+			await this.checkAndGenerateSummaries(automation.guildId, channelId, guildName);
 
 			return { success: true };
 		} catch (error) {

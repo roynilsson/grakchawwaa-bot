@@ -107,7 +107,7 @@ export class AnniversaryMonitorService {
         )
 
         // Only process guilds that have an anniversary channel configured
-        const channelId = anniversaryAutomation?.config?.channelId as string | undefined
+        const channelId = anniversaryAutomation?.resolvedChannel?.discordChannelId
         if (!channelId) {
           continue
         }

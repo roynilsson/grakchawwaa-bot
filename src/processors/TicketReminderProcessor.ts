@@ -7,10 +7,6 @@ import type { DiscordBotClient } from '../discord-bot-client';
 
 const TICKET_THRESHOLD = 600;
 
-interface TicketReminderConfig {
-	channelId?: string;
-}
-
 export class TicketReminderProcessor implements NotificationProcessor {
 	private client: DiscordBotClient;
 
@@ -19,9 +15,9 @@ export class TicketReminderProcessor implements NotificationProcessor {
 	}
 
 	async process(automation: Automation): Promise<NotificationResult> {
-		const config = automation.config as TicketReminderConfig;
+		const channelId = automation.resolvedChannel?.discordChannelId;
 
-		if (!config.channelId) {
+		if (!channelId) {
 			return { success: true, message: 'No channel configured, skipping' };
 		}
 
@@ -38,7 +34,7 @@ export class TicketReminderProcessor implements NotificationProcessor {
 			}
 
 			const lines = this.buildReminderLines(violators);
-			await this.sendReminderMessage(config.channelId, ticketData.guildName, lines);
+			await this.sendReminderMessage(channelId, ticketData.guildName, lines);
 
 			return { success: true };
 		} catch (error) {
