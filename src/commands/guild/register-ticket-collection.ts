@@ -133,7 +133,9 @@ export class RegisterTicketCollectionCommand extends Command {
       const registrationResult = await this.registerGuildAutomations(
         membershipResult.value.membership,
         channel.value.id,
+        channel.value.name,
         reminderChannel.value?.id ?? null,
+        reminderChannel.value?.name ?? null,
       )
       if (!registrationResult.success) {
         return await interaction.editReply(registrationResult.response)
@@ -301,26 +303,46 @@ export class RegisterTicketCollectionCommand extends Command {
   private async registerGuildAutomations(
     membership: PlayerGuildMembership,
     channelId: string,
+    channelName: string,
     reminderChannelId: string | null,
+    reminderChannelName: string | null,
   ): Promise<CommandResponse> {
     try {
       // Get automations for this guild
       const automations = await container.backendApi.automations.listByGuild(membership.guildId)
 
+      // Register the main notification channel (or get existing)
+      let guildChannel = await container.backendApi.guilds.findChannelByDiscordId(membership.guildId, channelId)
+      if (!guildChannel) {
+        guildChannel = await container.backendApi.guilds.addChannel(membership.guildId, {
+          discordChannelId: channelId,
+          name: channelName,
+        })
+      }
+
       // Find and update ticket_collection_notification automation (this sends the Discord notification)
       const ticketCollectionNotification = automations.find(a => a.automationType === 'ticket_collection_notification')
       if (ticketCollectionNotification) {
         await container.backendApi.automations.update(ticketCollectionNotification.id, {
-          config: { ...ticketCollectionNotification.config, channelId }
+          config: { ...ticketCollectionNotification.config, guildChannelId: guildChannel.id }
         })
       }
 
       // Find and update ticket_reminder automation
-      if (reminderChannelId) {
+      if (reminderChannelId && reminderChannelName) {
+        // Register the reminder channel (or get existing)
+        let reminderGuildChannel = await container.backendApi.guilds.findChannelByDiscordId(membership.guildId, reminderChannelId)
+        if (!reminderGuildChannel) {
+          reminderGuildChannel = await container.backendApi.guilds.addChannel(membership.guildId, {
+            discordChannelId: reminderChannelId,
+            name: reminderChannelName,
+          })
+        }
+
         const ticketReminder = automations.find(a => a.automationType === 'ticket_reminder')
         if (ticketReminder) {
           await container.backendApi.automations.update(ticketReminder.id, {
-            config: { ...ticketReminder.config, channelId: reminderChannelId }
+            config: { ...ticketReminder.config, guildChannelId: reminderGuildChannel.id }
           })
         }
       }

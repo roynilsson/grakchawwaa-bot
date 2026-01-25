@@ -128,6 +128,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
       const registrationResult = await this.registerGuildChannel(
         membershipResult.value.membership.guildId,
         channel.value.id,
+        channel.value.name,
       )
       if (!registrationResult.success) {
         return await interaction.editReply(registrationResult.response)
@@ -264,6 +265,7 @@ export class RegisterAnniversaryChannelCommand extends Command {
   private async registerGuildChannel(
     guildId: string,
     channelId: string,
+    channelName: string,
   ): Promise<CommandResponse> {
     try {
       // Find the anniversary automation for this guild
@@ -282,9 +284,18 @@ export class RegisterAnniversaryChannelCommand extends Command {
         }
       }
 
-      // Update the automation config with the channel ID
+      // Register the channel (or get existing)
+      let guildChannel = await container.backendApi.guilds.findChannelByDiscordId(guildId, channelId)
+      if (!guildChannel) {
+        guildChannel = await container.backendApi.guilds.addChannel(guildId, {
+          discordChannelId: channelId,
+          name: channelName,
+        })
+      }
+
+      // Update the automation config with the guild channel ID
       await container.backendApi.automations.update(anniversaryAutomation.id, {
-        config: { ...anniversaryAutomation.config, channelId },
+        config: { ...anniversaryAutomation.config, guildChannelId: guildChannel.id },
       })
 
       return { success: true, response: { content: "" } }

@@ -239,9 +239,11 @@ export class UnregisterAnniversaryChannelCommand extends Command {
         }
       }
 
-      // Update the automation config to clear the channel ID
+      // Update the automation config to clear the guild channel ID
+      const config = { ...anniversaryAutomation.config } as Record<string, unknown>
+      delete config.guildChannelId
       await container.backendApi.automations.update(anniversaryAutomation.id, {
-        config: { ...anniversaryAutomation.config, channelId: null },
+        config,
       })
 
       return { success: true, response: { content: "" } }
