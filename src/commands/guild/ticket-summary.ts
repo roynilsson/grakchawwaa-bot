@@ -136,11 +136,11 @@ export class TicketSummaryCommand extends Command {
       }
     }
 
-    // Check if the player's SW guild has ticket collection configured
+    // Check if the player's SW guild has ticket collection notification configured
     try {
       const automations = await container.backendApi.automations.listByGuild(membership.guildId)
-      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
-      const config = ticketCollection?.config as { channelId?: string } | undefined
+      const ticketCollectionNotification = automations.find(a => a.automationType === 'ticket_collection_notification')
+      const config = ticketCollectionNotification?.config as { channelId?: string } | undefined
       if (!config?.channelId) {
         return {
           success: false,

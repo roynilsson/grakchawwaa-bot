@@ -18,7 +18,7 @@ export class NotificationWorker {
 
 		this.processors = {
 			ticket_reminder: new TicketReminderProcessor(client),
-			ticket_collection: new TicketCollectionNotificationProcessor(client, summaryService)
+			ticket_collection_notification: new TicketCollectionNotificationProcessor(client, summaryService)
 		};
 	}
 

@@ -307,11 +307,11 @@ export class RegisterTicketCollectionCommand extends Command {
       // Get automations for this guild
       const automations = await container.backendApi.automations.listByGuild(membership.guildId)
 
-      // Find and update ticket_collection automation
-      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
-      if (ticketCollection) {
-        await container.backendApi.automations.update(ticketCollection.id, {
-          config: { ...ticketCollection.config, channelId }
+      // Find and update ticket_collection_notification automation (this sends the Discord notification)
+      const ticketCollectionNotification = automations.find(a => a.automationType === 'ticket_collection_notification')
+      if (ticketCollectionNotification) {
+        await container.backendApi.automations.update(ticketCollectionNotification.id, {
+          config: { ...ticketCollectionNotification.config, channelId }
         })
       }
 

@@ -226,11 +226,11 @@ export class UnregisterTicketCollectionCommand extends Command {
       // Get automations for this guild
       const automations = await container.backendApi.automations.listByGuild(guildId)
 
-      // Find and clear ticket_collection automation channel
-      const ticketCollection = automations.find(a => a.automationType === 'ticket_collection')
-      if (ticketCollection) {
-        const { channelId, ...restConfig } = ticketCollection.config as Record<string, unknown>
-        await container.backendApi.automations.update(ticketCollection.id, {
+      // Find and clear ticket_collection_notification automation channel
+      const ticketCollectionNotification = automations.find(a => a.automationType === 'ticket_collection_notification')
+      if (ticketCollectionNotification) {
+        const { channelId, ...restConfig } = ticketCollectionNotification.config as Record<string, unknown>
+        await container.backendApi.automations.update(ticketCollectionNotification.id, {
           config: restConfig
         })
       }
