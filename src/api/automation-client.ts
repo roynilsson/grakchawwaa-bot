@@ -35,6 +35,20 @@ export class AutomationApiClient extends BaseApiClient {
 		return response.automation;
 	}
 
+	async create(data: {
+		guildId: string;
+		automationType: string;
+		config?: Record<string, unknown>;
+		enabled?: boolean;
+		interval?: string;
+	}): Promise<Automation> {
+		const response = await this.request<{ automation: Automation }>('/api/automations', {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+		return response.automation;
+	}
+
 	async update(
 		id: number,
 		data: { config?: Record<string, unknown>; enabled?: boolean; interval?: string }
