@@ -22,6 +22,7 @@ export * from './player-client';
 export * from './guild-client';
 export * from './violation-client';
 export * from './automation-client';
+export * from './raid-client';
 
 // Declare in container
 declare module '@sapphire/pieces' {
