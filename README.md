@@ -23,6 +23,16 @@ Discord bot for Star Wars: Galaxy of Heroes guild management.
 - `/get-guild-members` - Get a list of all members in a guild
   - `ally-code` - Ally code of a guild member (optional if already registered)
 
+### Raid Features
+
+The bot automatically monitors SWGOH raids (Krayt Dragon, Naboo, Order 66) and sends notifications when players are below their configured targets.
+
+**Configuration is done via the web interface** - no Discord commands needed.
+
+- **Raid Collection**: Backend processor fetches raid data from Mhann API and triggers notifications
+- **Raid Reminders**: Bot sends Discord embeds listing players below their targets with @mentions
+- **Automatic Scheduling**: Runs daily at midnight, at configured reminder hours before raid end, and after raid completion
+
 ### Player Commands
 
 - `/register-player` - Register a player with an ally code
