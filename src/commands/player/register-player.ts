@@ -86,6 +86,7 @@ export class RegisterPlayerCommand extends Command {
         // Update existing player
         await this.container.backendApi.players.update(normalizedAllyCode, {
           discordId: targetUser.id,
+          discordUsername: targetUser.username,
           isMain: !isAlt,
         })
 
@@ -97,6 +98,7 @@ export class RegisterPlayerCommand extends Command {
         await this.container.backendApi.players.create({
           allyCode: normalizedAllyCode,
           discordId: targetUser.id,
+          discordUsername: targetUser.username,
           isMain: !isAlt,
         })
 

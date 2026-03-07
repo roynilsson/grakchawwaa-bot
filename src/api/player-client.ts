@@ -3,6 +3,7 @@ import { BaseApiClient } from './base-client';
 export interface Player {
 	allyCode: string;
 	discordId?: string;
+	discordUsername?: string;
 	name?: string;
 	playerId?: string;
 	isMain?: boolean;
@@ -17,7 +18,7 @@ export interface PlayerGuildMembership {
 
 export class PlayerApiClient extends BaseApiClient {
 	// POST /api/players
-	async create(data: { allyCode: string; discordId: string; name?: string; playerId?: string; isMain?: boolean }): Promise<Player> {
+	async create(data: { allyCode: string; discordId: string; discordUsername?: string; name?: string; playerId?: string; isMain?: boolean }): Promise<Player> {
 		const response = await this.request<{ player: Player }>('/api/players', {
 			method: 'POST',
 			body: JSON.stringify(data)
@@ -52,6 +53,7 @@ export class PlayerApiClient extends BaseApiClient {
 			name: string;
 			playerId: string;
 			discordId: string;
+			discordUsername: string;
 			isMain: boolean;
 		}>
 	): Promise<Player> {
