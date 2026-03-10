@@ -9,11 +9,11 @@ export class BackendApiClient {
 	public violations: ViolationApiClient;
 	public automations: AutomationApiClient;
 
-	constructor(baseUrl: string) {
-		this.players = new PlayerApiClient(baseUrl);
-		this.guilds = new GuildApiClient(baseUrl);
-		this.violations = new ViolationApiClient(baseUrl);
-		this.automations = new AutomationApiClient(baseUrl);
+	constructor(baseUrl: string, apiKey?: string) {
+		this.players = new PlayerApiClient(baseUrl, apiKey);
+		this.guilds = new GuildApiClient(baseUrl, apiKey);
+		this.violations = new ViolationApiClient(baseUrl, apiKey);
+		this.automations = new AutomationApiClient(baseUrl, apiKey);
 	}
 }
 

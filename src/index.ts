@@ -7,7 +7,8 @@ import { NotificationWorker } from "./workers/notificationWorker"
 
 // Initialize backend API client
 const backendApiUrl = process.env.BACKEND_API_URL || "http://localhost:3000"
-container.backendApi = new BackendApiClient(backendApiUrl)
+const internalApiKey = process.env.INTERNAL_API_KEY
+container.backendApi = new BackendApiClient(backendApiUrl, internalApiKey)
 console.log(`Backend API URL: ${backendApiUrl}`)
 
 const client = new DiscordBotClient()

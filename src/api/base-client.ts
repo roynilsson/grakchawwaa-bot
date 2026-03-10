@@ -1,8 +1,10 @@
 export class BaseApiClient {
 	protected baseUrl: string;
+	protected apiKey: string | undefined;
 
-	constructor(baseUrl: string) {
+	constructor(baseUrl: string, apiKey?: string) {
 		this.baseUrl = baseUrl;
+		this.apiKey = apiKey;
 	}
 
 	protected async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -12,12 +14,18 @@ export class BaseApiClient {
 		for (let attempt = 0; attempt < maxRetries; attempt++) {
 			try {
 				const url = `${this.baseUrl}${endpoint}`;
+				const headers: Record<string, string> = {
+					'Content-Type': 'application/json',
+					...(options?.headers as Record<string, string>)
+				};
+
+				if (this.apiKey) {
+					headers['x-api-key'] = this.apiKey;
+				}
+
 				const response = await fetch(url, {
 					...options,
-					headers: {
-						'Content-Type': 'application/json',
-						...options?.headers
-					}
+					headers
 				});
 
 				if (!response.ok) {
