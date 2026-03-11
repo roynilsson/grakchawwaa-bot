@@ -46,53 +46,34 @@ export class NotificationWorker {
 
 	private async checkDueAutomations(): Promise<void> {
 		try {
-			// Fetch all automations due for bot processing
-			const guilds = await container.backendApi.guilds.list();
+			// Fetch automations that are due for bot processing
+			// This endpoint uses API key auth and returns only enabled automations
+			// where processedBy='bot' and nextRunAt <= now
+			const automations = await container.backendApi.automations.listDueForBot();
 
-			for (const guild of guilds) {
-				const automations = await container.backendApi.automations.listByGuild(guild.id);
+			for (const automation of automations) {
+				// Find processor for this automation type
+				const processor = this.processors[automation.automationType];
+				if (!processor) {
+					console.warn(`No processor for automation type: ${automation.automationType}`);
+					continue;
+				}
 
-				for (const automation of automations) {
-					// Skip if not bot-processed or not enabled
-					if (automation.processedBy !== 'bot' || !automation.enabled) {
-						continue;
-					}
+				// Process the automation
+				console.log(
+					`Processing automation ${automation.id} (${automation.automationType}) for guild ${automation.guildId}`
+				);
 
-					// Skip if not due yet
-					if (!automation.nextRunAt) {
-						continue;
-					}
+				const result = await processor.process(automation);
 
-					const nextRunAt = new Date(automation.nextRunAt).getTime();
-					const now = Date.now();
-
-					if (nextRunAt > now) {
-						continue;
-					}
-
-					// Find processor for this automation type
-					const processor = this.processors[automation.automationType];
-					if (!processor) {
-						console.warn(`No processor for automation type: ${automation.automationType}`);
-						continue;
-					}
-
-					// Process the automation
+				if (result.success) {
 					console.log(
-						`Processing automation ${automation.id} (${automation.automationType}) for guild ${guild.id}`
+						`Automation ${automation.id} processed successfully${result.message ? `: ${result.message}` : ''}`
 					);
-
-					const result = await processor.process(automation);
-
-					if (result.success) {
-						console.log(
-							`Automation ${automation.id} processed successfully${result.message ? `: ${result.message}` : ''}`
-						);
-						// Mark as run in backend
-						await container.backendApi.automations.markRun(automation.id);
-					} else {
-						console.error(`Automation ${automation.id} failed: ${result.message}`);
-					}
+					// Mark as run in backend
+					await container.backendApi.automations.markRun(automation.id);
+				} else {
+					console.error(`Automation ${automation.id} failed: ${result.message}`);
 				}
 			}
 		} catch (error) {
