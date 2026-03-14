@@ -146,7 +146,7 @@ export class TicketSummaryCommand extends Command {
           success: false,
           response: {
             content:
-              "Your Star Wars guild is not registered for ticket collection. Use `/register-ticket-collection` first.",
+              "Your Star Wars guild is not registered for ticket collection. Please configure ticket collection via the web dashboard.",
           },
         }
       }
@@ -155,7 +155,7 @@ export class TicketSummaryCommand extends Command {
         success: false,
         response: {
           content:
-            "Your Star Wars guild is not registered for ticket collection. Use `/register-ticket-collection` first.",
+            "Your Star Wars guild is not registered for ticket collection. Please configure ticket collection via the web dashboard.",
         },
       }
     }

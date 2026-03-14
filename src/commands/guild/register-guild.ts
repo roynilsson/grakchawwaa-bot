@@ -56,14 +56,14 @@ export class RegisterGuildCommand extends Command {
         })
 
         return await interaction.editReply({
-          content: `Successfully registered guild **${verification.guildName}** with the bot!\n\nYou can now configure channels using:\n- \`/register-ticket-collection\`\n- \`/register-anniversary-channel\``,
+          content: `Successfully registered guild **${verification.guildName}** with the bot!\n\nYou can now configure automations and channels via the web dashboard.`,
         })
       } catch (error) {
         const errorMessage = (error as Error).message
 
         if (errorMessage.includes("already registered")) {
           return await interaction.editReply({
-            content: `Guild **${verification.guildName}** is already registered with the bot.\n\nYou can configure channels using:\n- \`/register-ticket-collection\`\n- \`/register-anniversary-channel\``,
+            content: `Guild **${verification.guildName}** is already registered with the bot.\n\nYou can configure automations and channels via the web dashboard.`,
           })
         }
 
