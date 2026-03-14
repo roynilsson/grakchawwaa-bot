@@ -102,44 +102,6 @@ export class GuildApiClient extends BaseApiClient {
 		return response.member;
 	}
 
-	// POST /api/guilds/:guildId/members
-	async addMember(
-		guildId: string,
-		data: { allyCode: string; memberLevel?: number }
-	): Promise<GuildMember> {
-		const response = await this.request<{ member: GuildMember }>(
-			`/api/guilds/${guildId}/members`,
-			{
-				method: 'POST',
-				body: JSON.stringify(data)
-			}
-		);
-		return response.member;
-	}
-
-	// PUT /api/guilds/:guildId/members/:allyCode
-	async updateMember(
-		guildId: string,
-		allyCode: string,
-		data: { memberLevel?: number }
-	): Promise<GuildMember> {
-		const response = await this.request<{ member: GuildMember }>(
-			`/api/guilds/${guildId}/members/${allyCode}`,
-			{
-				method: 'PUT',
-				body: JSON.stringify(data)
-			}
-		);
-		return response.member;
-	}
-
-	// DELETE /api/guilds/:guildId/members/:allyCode
-	async removeMember(guildId: string, allyCode: string): Promise<void> {
-		await this.request<void>(`/api/guilds/${guildId}/members/${allyCode}`, {
-			method: 'DELETE'
-		});
-	}
-
 	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink
 	async checkTickets(guildId: string): Promise<TicketCheckResult> {
 		return this.request<TicketCheckResult>(`/api/guilds/${guildId}/ticket-check`, {
@@ -147,7 +109,7 @@ export class GuildApiClient extends BaseApiClient {
 		});
 	}
 
-	// POST /api/guilds/verify-registration - Verify user can register guild
+	// POST /api/utils/verify-guild-registration - Verify user can register guild
 	async verifyRegistration(allyCode: string): Promise<{
 		canRegister: boolean;
 		guildId?: string;
@@ -155,27 +117,10 @@ export class GuildApiClient extends BaseApiClient {
 		playerName?: string;
 		message?: string;
 	}> {
-		return this.request(`/api/guilds/verify-registration`, {
+		return this.request(`/api/utils/verify-guild-registration`, {
 			method: 'POST',
 			body: JSON.stringify({ allyCode })
 		});
-	}
-
-	// GET /api/guilds/:id/roster - Get guild roster for anniversaries
-	async getRoster(guildId: string): Promise<{
-		guildId: string;
-		guildName: string;
-		members: Array<{
-			playerId: string;
-			playerName: string;
-			allyCode?: number;
-			memberLevel: number;
-			guildJoinTime: number;
-			playerLevel: number;
-			galacticPower: string;
-		}>;
-	}> {
-		return this.request(`/api/guilds/${guildId}/roster`);
 	}
 
 	// GET /api/guilds/:guildId/channels - List approved channels

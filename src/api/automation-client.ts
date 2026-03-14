@@ -31,9 +31,11 @@ export class AutomationApiClient extends BaseApiClient {
 		return response.automations;
 	}
 
-	// GET /api/automations/:id
-	async get(id: number): Promise<Automation> {
-		const response = await this.request<{ automation: Automation }>(`/api/automations/${id}`);
+	// GET /api/guilds/:guildId/automations/:id
+	async get(guildId: string, id: number): Promise<Automation> {
+		const response = await this.request<{ automation: Automation }>(
+			`/api/guilds/${guildId}/automations/${id}`
+		);
 		return response.automation;
 	}
 
@@ -56,15 +58,19 @@ export class AutomationApiClient extends BaseApiClient {
 		return response.automation;
 	}
 
-	// PUT /api/automations/:id
+	// PUT /api/guilds/:guildId/automations/:id
 	async update(
+		guildId: string,
 		id: number,
 		data: { config?: Record<string, unknown>; enabled?: boolean; interval?: string }
 	): Promise<Automation> {
-		const response = await this.request<{ automation: Automation }>(`/api/automations/${id}`, {
-			method: 'PUT',
-			body: JSON.stringify(data),
-		});
+		const response = await this.request<{ automation: Automation }>(
+			`/api/guilds/${guildId}/automations/${id}`,
+			{
+				method: 'PUT',
+				body: JSON.stringify(data),
+			}
+		);
 		return response.automation;
 	}
 

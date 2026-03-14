@@ -10,13 +10,14 @@ interface MemberAnniversary {
 }
 
 interface GuildMember {
-  playerId: string
-  playerName: string
-  allyCode?: number
+  player: {
+    allyCode: string
+    playerId?: string
+    name?: string
+  }
   memberLevel: number
-  guildJoinTime: number
-  playerLevel: number
-  galacticPower: string
+  joinedAt: string // ISO date string
+  isActive: boolean
 }
 
 export class AnniversaryMonitorService {
@@ -112,7 +113,7 @@ export class AnniversaryMonitorService {
           continue
         }
 
-        await this.processGuildAnniversaries(guild.id, channelId)
+        await this.processGuildAnniversaries(guild.id, guild.name, channelId)
       }
     } catch (error) {
       console.error("Error checking guild anniversaries:", error)
@@ -121,20 +122,21 @@ export class AnniversaryMonitorService {
 
   private async processGuildAnniversaries(
     guildId: string,
+    guildName: string,
     channelId: string,
   ): Promise<void> {
     try {
       console.log(`Processing anniversaries for guild ${guildId}`)
 
-      const rosterData = await this.fetchGuildRoster(guildId)
-      if (!rosterData) return
+      const members = await this.fetchGuildMembers(guildId)
+      if (!members) return
 
-      const anniversaries = this.findAnniversaries(rosterData.members)
+      const anniversaries = this.findAnniversaries(members)
 
       if (anniversaries.length > 0) {
         await this.sendAnniversaryMessages(
           channelId,
-          rosterData.guildName,
+          guildName,
           anniversaries,
         )
       } else {
@@ -148,20 +150,16 @@ export class AnniversaryMonitorService {
     }
   }
 
-  private async fetchGuildRoster(guildId: string): Promise<{
-    guildId: string
-    guildName: string
-    members: GuildMember[]
-  } | null> {
+  private async fetchGuildMembers(guildId: string): Promise<GuildMember[] | null> {
     try {
-      const roster = await container.backendApi.guilds.getRoster(guildId)
-      if (!roster?.members) {
+      const members = await container.backendApi.guilds.getMembers(guildId)
+      if (!members?.length) {
         console.error(`No member data found for guild ${guildId}`)
         return null
       }
-      return roster
+      return members
     } catch (error) {
-      console.error(`Error fetching roster for guild ${guildId}:`, error)
+      console.error(`Error fetching members for guild ${guildId}:`, error)
       return null
     }
   }
@@ -173,11 +171,10 @@ export class AnniversaryMonitorService {
     const today = new Date()
 
     for (const member of members) {
-      if (!member.guildJoinTime) continue
+      if (!member.joinedAt) continue
 
-      // Convert guild join timestamp (which is in seconds) to a Date object
-      const joinDate = new Date(0) // Start with epoch
-      joinDate.setUTCSeconds(member.guildJoinTime)
+      // joinedAt is an ISO date string
+      const joinDate = new Date(member.joinedAt)
 
       // Check if today is the anniversary of the join date
       const isAnniversary =
@@ -191,10 +188,10 @@ export class AnniversaryMonitorService {
         // Only celebrate full years (1 year or more)
         if (yearsJoined >= 1) {
           anniversaries.push({
-            id: member.playerId,
-            name: member.playerName,
+            id: member.player.playerId || member.player.allyCode,
+            name: member.player.name || member.player.allyCode,
             years: yearsJoined,
-            joinTime: member.guildJoinTime,
+            joinTime: Math.floor(joinDate.getTime() / 1000),
           })
         }
       }
