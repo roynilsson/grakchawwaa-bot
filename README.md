@@ -1,127 +1,136 @@
-# grakchawwaa-bot
+# Grakchawwaa Bot - Discord Bot
 
 Discord bot for Star Wars: Galaxy of Heroes guild management.
 
+## Overview
+
+The bot provides Discord slash commands for player registration, guild management, and officer tools. It also handles automated notifications from the backend (ticket violations, raid reminders, anniversaries).
+
+**Configuration is done via the web dashboard** - the bot executes automations configured there.
+
+## Technology Stack
+
+- **Framework:** Sapphire (Discord.js wrapper)
+- **Discord.js:** v14+
+- **Language:** TypeScript
+- **Runtime:** Node.js 16+
+- **API Client:** HTTP client to grakchawwaa-backend
+
 ## Commands
 
-### Guild Commands
+### Player Commands (`/player`)
 
-- `/register-ticket-collection` - Register a guild for ticket collection monitoring
+| Command | Description |
+|---------|-------------|
+| `/player register <ally-code> [is-alt] [discord-user]` | Register a player with an ally code |
+| `/player unregister <ally-code>` | Unregister a player by ally code |
+| `/player identify` | Show your registered ally codes (main + alts) |
 
-  - `channel` - Discord channel to post ticket summaries (required)
-  - `ally-code` - Ally code of a guild member (optional if already registered)
+### Guild Commands (`/guild`)
 
-- `/unregister-ticket-collection` - Removes guild ticket collection monitoring
+| Command | Description |
+|---------|-------------|
+| `/guild members [name] [ally-code]` | List guild members (optional name filter) |
+| `/guild tickets <days>` | Generate ticket violation summary (1-90 days) |
 
-- `/register-anniversary-channel` - Register a channel for guild anniversary notifications
+### Officer Commands (`/officer`)
 
-  - `channel` - Discord channel to post anniversary messages (required)
-  - `ally-code` - Ally code of a guild member (optional if already registered)
+These commands require officer or leader status in your SWGOH guild (member level 3+).
 
-- `/unregister-anniversary-channel` - Removes guild anniversary notifications
-
-- `/get-guild-members` - Get a list of all members in a guild
-  - `ally-code` - Ally code of a guild member (optional if already registered)
-
-### Raid Features
-
-The bot automatically monitors SWGOH raids (Krayt Dragon, Naboo, Order 66) and sends notifications when players are below their configured targets.
-
-**Configuration is done via the web interface** - no Discord commands needed.
-
-- **Raid Collection**: Backend processor fetches raid data from Mhann API and triggers notifications
-- **Raid Reminders**: Bot sends Discord embeds listing players below their targets with @mentions
-- **Automatic Scheduling**: Runs daily at midnight, at configured reminder hours before raid end, and after raid completion
-
-### Player Commands
-
-- `/register-player` - Register a player with an ally code
-
-  - `ally-code` - Ally code to register (required)
-
-- `/unregister-player` - Remove a player registration
-
-- `/identify` - Display information about a registered player
+| Command | Description |
+|---------|-------------|
+| `/officer setup register-guild` | Register your guild with the bot |
+| `/officer setup channel-add <channel> [ally-code]` | Pre-approve a Discord channel for bot use |
+| `/officer setup channel-remove <channel> [ally-code]` | Remove a pre-approved channel |
+| `/officer warn <player> <type> [note] [ally-code]` | Issue a warning to a guild member |
 
 ### Utility Commands
 
-- `/ping` - Check if the bot is online and responsive
+| Command | Description |
+|---------|-------------|
+| `/ping` | Check if the bot is online and responsive |
 
-## Development
+## Automated Features
 
-The bot is built using TypeScript and the Sapphire Discord.js framework.
+The bot processes notifications triggered by the backend's automation system:
+
+### Ticket Collection Notifications
+- Posts daily ticket violation summaries to configured Discord channels
+- Lists players who didn't reach 600 tickets
+- Configurable via web dashboard
+
+### Ticket Reminders
+- Sends reminder notifications before daily reset
+- Configurable reminder hours (e.g., 2 hours before reset)
+- @mentions players who haven't reached 600 tickets
+
+### Raid Reminders
+- Monitors Krayt Dragon, Naboo, and Order 66 raids
+- Sends notifications when players are below configured targets
+- Configurable reminder hours before raid end
+
+### Anniversary Notifications
+- Posts guild member anniversary messages
+- Celebrates time in guild milestones
+
+## Project Structure
+
+```
+grakchawwaa-bot/
+├── src/
+│   ├── commands/           # Slash command handlers
+│   │   ├── ping.ts
+│   │   ├── player.ts
+│   │   ├── guild.ts
+│   │   └── officer.ts
+│   ├── api/                # Backend API clients
+│   │   ├── base-client.ts
+│   │   ├── player-client.ts
+│   │   ├── guild-client.ts
+│   │   ├── violation-client.ts
+│   │   └── automation-client.ts
+│   ├── services/           # Business logic
+│   │   ├── violation-summary.ts
+│   │   └── cache.ts
+│   ├── processors/         # Notification processors
+│   │   └── notification/
+│   ├── workers/            # Background workers
+│   │   └── notification-worker.ts
+│   └── index.ts            # Bot entry point
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- PNPM package manager
-- Docker and Docker Compose (for local database setup)
+- Node.js 16+
+- pnpm
+- Docker and Docker Compose
+- A Discord bot application (for development)
+- Running grakchawwaa-backend instance
 
-### Setup
+### Environment Variables
 
-1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/grakchawwaa-bot.git
-cd grakchawwaa-bot
-```
-
-2. Install dependencies
+Create `.env.dev`:
 
 ```bash
-pnpm install
-```
+NODE_ENV=development
+PORT=3200
+APP_NAME=grakchawwaa
 
-3. Configure environment variables
+# Discord Bot
+DISCORD_APPLICATION_ID=your_app_id
+DISCORD_TOKEN=your_bot_token
+DISCORD_PUBLIC_KEY=your_public_key
 
-- Create an `.env.dev` file with the following attributes:
+# Backend API
+BACKEND_URL=http://grakchawwaa-backend:3000
+INTERNAL_API_KEY=your_api_key
 
-  ```
-    NODE_ENV=development
-    PORT=3200
-    APP_NAME=grakchawaa
-
-    DISCORD_APPLICATION_ID=
-    DISCORD_TOKEN=
-    DISCORD_PUBLIC_KEY=
-
-    PGUSER=
-    PGHOST=
-    PGPORT=
-    PGPASSWORD=
-    PGDATABASE=
-
-    COMLINK_URL=
-    COMLINK_ACCESS_KEY=""
-    COMLINK_SECRET_KEY=""
-  ```
-
-You will need to register your own discord bot (for manual testing) and setup you own [swgoh comlink instance](https://github.com/swgoh-utils/swgoh-comlink). From those you can fill in the values missing above.
-
-### Database Setup
-
-The easiest way to set up a local PostgreSQL database is using Docker:
-
-```bash
-pnpm docker:setup
-```
-
-This command will:
-- Start a PostgreSQL container with pre-configured credentials
-- Wait for the database to be ready
-- Create all required tables
-- Insert test data
-
-**Docker Database Credentials:**
-- Host: `localhost`
-- Port: `5432`
-- User: `grakchawwaa`
-- Password: `dev_password`
-- Database: `grakchawwaa_dev`
-
-To use the Docker database in your `.env.dev` file:
-
-```
+# (Legacy - if running locally without Docker)
 PGUSER=grakchawwaa
 PGHOST=localhost
 PGPORT=5432
@@ -129,70 +138,78 @@ PGPASSWORD=dev_password
 PGDATABASE=grakchawwaa_dev
 ```
 
-**Docker Commands:**
-- `pnpm docker:up` - Start the database container
-- `pnpm docker:down` - Stop the database container
-- `pnpm docker:setup` - Start database and run setup scripts
-- `pnpm docker:reset` - Reset database (removes all data) and re-run setup
-
-**Querying the Database:**
-
-To query the database directly, you can use `psql` inside the Docker container:
+### Development (Docker - Recommended)
 
 ```bash
-# Connect to the database
-docker exec -it grakchawwaa-postgres psql -U grakchawwaa -d grakchawwaa_dev
+# Start bot container (connects to backend network)
+docker compose up -d
+
+# View logs
+docker compose logs -f bot
+
+# Restart after code changes
+docker compose restart bot
+
+# Run linting
+docker compose exec bot pnpm lint
 ```
 
-Once connected, you can run SQL queries:
-
-```sql
--- List all tables
-\dt
-
--- Query the players table
-SELECT * FROM players;
-
--- Check table structure
-\d players
-
--- Query with specific columns
-SELECT discord_id, ally_code, registered_at FROM players;
-```
-
-Useful psql commands:
-- `\dt` - List all tables
-- `\d table_name` - Describe a table structure
-- `\q` - Quit psql
-- `\l` - List all databases
-
-You can also run one-liner queries without entering interactive mode:
+### Local Development
 
 ```bash
-# Run a single query
-docker exec -it grakchawwaa-postgres psql -U grakchawwaa -d grakchawwaa_dev -c "SELECT * FROM players;"
+# Install dependencies
+pnpm install
 
-# Check table structure
-docker exec -it grakchawwaa-postgres psql -U grakchawwaa -d grakchawwaa_dev -c "\d players"
+# Start in development mode
+pnpm dev
 ```
+
+## Discord Bot Setup
+
+To create your own Discord bot for development:
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application
+3. Go to "Bot" section and create a bot
+4. Copy the token to `DISCORD_TOKEN`
+5. Go to "OAuth2" > "URL Generator"
+6. Select scopes: `bot`, `applications.commands`
+7. Select permissions: `Send Messages`, `Embed Links`, `Read Message History`
+8. Use generated URL to add bot to your test server
+
+## Architecture
+
+```
+Discord <---> Bot <---> Backend API
+                           |
+                           v
+                      PostgreSQL
+```
+
+The bot:
+1. Receives slash commands from Discord
+2. Calls the backend API for data/actions
+3. Responds to Discord with results
+4. Polls for due automations and processes notifications
 
 ## Deployment
 
-This bot runs as a **worker dyno only** on Heroku (not a web dyno). 
+This bot runs as a **worker dyno only** on Heroku (not a web dyno).
 
-**⚠️ IMPORTANT:** After deploying, scale the web dyno to 0 to prevent health check failures:
+After deploying, scale the web dyno to 0:
 
 ```bash
-pnpm heroku-scale-web-zero
+heroku ps:scale web=0 worker=1 -a your-app-name
 ```
 
-For complete deployment instructions, troubleshooting, and verification steps, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
-## Legal Documents
+## Related Projects
 
-The Terms of Service and Privacy Policy are published via GitHub Pages. After setting up GitHub Pages (see [docs/README.md](./docs/README.md)), they will be available at:
+- **grakchawwaa-backend** - REST API (data source)
+- **grakchawwaa-web** - Web dashboard (automation configuration)
+- **grakchawwaa-comlink** - SWGOH game data proxy
 
-- Terms of Service: `https://[your-username].github.io/grakchawwaa-bot/terms-of-service.html`
-- Privacy Policy: `https://[your-username].github.io/grakchawwaa-bot/privacy-policy.html`
+## License
 
-To update these documents, simply edit the corresponding markdown files in the `docs/` directory and push to the repository.
+MIT
