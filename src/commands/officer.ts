@@ -5,7 +5,7 @@ import {
   TextChannel,
   type AutocompleteInteraction,
 } from "discord.js"
-import type { PlayerGuildMembership } from "../api/player-client"
+import type { Player, PlayerGuildMembership } from "../api/player-client"
 
 interface CommandResponse<T = undefined> {
   success: boolean
@@ -16,8 +16,8 @@ interface CommandResponse<T = undefined> {
   value?: T
 }
 
-interface GuildMembershipData {
-  allyCode: string
+interface PlayerWithMembership {
+  player: Player
   membership: PlayerGuildMembership
 }
 
@@ -177,13 +177,11 @@ export class OfficerCommand extends Subcommand {
           return interaction.respond([])
         }
 
-        // Get guild membership
-        const membership = await container.backendApi.players.getGuildMembership(
-          mainPlayer.allyCode,
-        )
-        if (!membership) {
+        // Check guild membership (now embedded in player)
+        if (!mainPlayer.guildMembership) {
           return interaction.respond([])
         }
+        const membership = mainPlayer.guildMembership
 
         if (focusedOption.name === "player") {
           // Fetch guild members and filter by search
@@ -321,27 +319,13 @@ export class OfficerCommand extends Subcommand {
 
       await interaction.deferReply()
 
-      const allyCodeResult = await this.resolveAllyCode(interaction)
-      if (!allyCodeResult.success || !allyCodeResult.value) {
-        return await interaction.editReply(allyCodeResult.response)
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
       }
 
-      const validationResult = await this.validateAllyCodeOwnership(
-        interaction.user.id,
-        allyCodeResult.value,
-      )
-      if (!validationResult.success) {
-        return await interaction.editReply(validationResult.response)
-      }
-
-      const membershipResult = await this.getGuildMembership(
-        allyCodeResult.value,
-      )
-      if (!membershipResult.success || !membershipResult.value) {
-        return await interaction.editReply(membershipResult.response)
-      }
-
-      if (membershipResult.value.membership.memberLevel < 3) {
+      const { membership } = result.value
+      if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content:
             "Only guild leaders and officers can register channels for the guild.",
@@ -349,7 +333,7 @@ export class OfficerCommand extends Subcommand {
       }
 
       const registrationResult = await this.registerChannel(
-        membershipResult.value.membership.guildId,
+        membership.guildId,
         channel.value.id,
         channel.value.name,
       )
@@ -358,7 +342,7 @@ export class OfficerCommand extends Subcommand {
       }
 
       return await interaction.editReply({
-        content: `Channel ${channelMention(channel.value.id)} has been registered for guild **${membershipResult.value.membership.guildName}**.`,
+        content: `Channel ${channelMention(channel.value.id)} has been registered for guild **${membership.guildName}**.`,
       })
     } catch (error) {
       if (!interaction.deferred) {
@@ -391,27 +375,13 @@ export class OfficerCommand extends Subcommand {
 
       await interaction.deferReply()
 
-      const allyCodeResult = await this.resolveAllyCode(interaction)
-      if (!allyCodeResult.success || !allyCodeResult.value) {
-        return await interaction.editReply(allyCodeResult.response)
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
       }
 
-      const validationResult = await this.validateAllyCodeOwnership(
-        interaction.user.id,
-        allyCodeResult.value,
-      )
-      if (!validationResult.success) {
-        return await interaction.editReply(validationResult.response)
-      }
-
-      const membershipResult = await this.getGuildMembership(
-        allyCodeResult.value,
-      )
-      if (!membershipResult.success || !membershipResult.value) {
-        return await interaction.editReply(membershipResult.response)
-      }
-
-      if (membershipResult.value.membership.memberLevel < 3) {
+      const { membership } = result.value
+      if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content:
             "Only guild leaders and officers can unregister channels from the guild.",
@@ -419,7 +389,7 @@ export class OfficerCommand extends Subcommand {
       }
 
       const unregistrationResult = await this.unregisterChannel(
-        membershipResult.value.membership.guildId,
+        membership.guildId,
         channel.value.id,
       )
       if (!unregistrationResult.success) {
@@ -427,7 +397,7 @@ export class OfficerCommand extends Subcommand {
       }
 
       return await interaction.editReply({
-        content: `Channel ${channelMention(channel.value.id)} has been unregistered from guild **${membershipResult.value.membership.guildName}**.`,
+        content: `Channel ${channelMention(channel.value.id)} has been unregistered from guild **${membership.guildName}**.`,
       })
     } catch (error) {
       if (!interaction.deferred) {
@@ -455,29 +425,13 @@ export class OfficerCommand extends Subcommand {
     try {
       await interaction.deferReply()
 
-      // Get and validate ally code
-      const allyCodeResult = await this.resolveAllyCode(interaction)
-      if (!allyCodeResult.success || !allyCodeResult.value) {
-        return await interaction.editReply(allyCodeResult.response)
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
       }
 
-      const validationResult = await this.validateAllyCodeOwnership(
-        interaction.user.id,
-        allyCodeResult.value,
-      )
-      if (!validationResult.success) {
-        return await interaction.editReply(validationResult.response)
-      }
-
-      // Get guild membership and check officer permissions
-      const membershipResult = await this.getGuildMembership(
-        allyCodeResult.value,
-      )
-      if (!membershipResult.success || !membershipResult.value) {
-        return await interaction.editReply(membershipResult.response)
-      }
-
-      if (membershipResult.value.membership.memberLevel < 3) {
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content: "Only guild leaders and officers can issue warnings.",
         })
@@ -495,7 +449,7 @@ export class OfficerCommand extends Subcommand {
       let targetMember
       try {
         targetMember = await container.backendApi.guilds.getMember(
-          membershipResult.value.membership.guildId,
+          membership.guildId,
           playerAllyCode,
         )
       } catch {
@@ -507,11 +461,11 @@ export class OfficerCommand extends Subcommand {
       // Issue the warning
       try {
         const warning = await container.backendApi.warnings.issue({
-          guildId: membershipResult.value.membership.guildId,
+          guildId: membership.guildId,
           playerId: playerAllyCode,
           warningTypeId,
           note,
-          issuedBy: allyCodeResult.value,
+          issuedBy: player.allyCode,
         })
 
         const playerName = targetMember.player.name || playerAllyCode
@@ -570,26 +524,22 @@ export class OfficerCommand extends Subcommand {
     }
   }
 
-  private async resolveAllyCode(
+  /**
+   * Resolves player and guild membership in a single API call.
+   * - If ally-code option provided: validates caller owns it
+   * - If no ally-code: uses caller's main player
+   * - Returns player with guild membership data
+   */
+  private async resolvePlayerWithMembership(
     interaction: Subcommand.ChatInputCommandInteraction,
-  ): Promise<CommandResponse<string>> {
-    const inputAllyCode = interaction.options.getString("ally-code")
+  ): Promise<CommandResponse<PlayerWithMembership>> {
+    const inputAllyCode = interaction.options.getString("ally-code")?.replace(/-/g, "")
+    const discordId = interaction.user.id
 
-    if (inputAllyCode) {
-      return {
-        success: true,
-        response: { content: "" },
-        value: inputAllyCode.replace(/-/g, ""),
-      }
-    }
+    // Fetch all players for this Discord user (single API call)
+    const players = await container.backendApi.players.list({ discordId })
 
-    const players = await container.backendApi.players.list({
-      discordId: interaction.user.id,
-      isMain: true,
-    })
-
-    const mainPlayer = players[0]
-    if (!mainPlayer) {
+    if (players.length === 0) {
       return {
         success: false,
         response: {
@@ -599,46 +549,32 @@ export class OfficerCommand extends Subcommand {
       }
     }
 
-    return {
-      success: true,
-      response: { content: "" },
-      value: mainPlayer.allyCode,
-    }
-  }
-
-  private async validateAllyCodeOwnership(
-    discordId: string,
-    allyCode: string,
-  ): Promise<CommandResponse> {
-    const players = await container.backendApi.players.list({ discordId })
-    const ownsAllyCode = players.some(
-      (p: { allyCode: string }) => p.allyCode === allyCode,
-    )
-
-    if (!ownsAllyCode) {
-      return {
-        success: false,
-        response: {
-          content:
-            "You can only manage channels for guilds using your own registered ally codes.",
-        },
+    // Find the target player
+    let player: Player
+    if (inputAllyCode) {
+      // Validate caller owns the specified ally code
+      const found = players.find((p) => p.allyCode === inputAllyCode)
+      if (!found) {
+        return {
+          success: false,
+          response: {
+            content:
+              "You can only manage channels for guilds using your own registered ally codes.",
+          },
+        }
       }
+      player = found
+    } else {
+      // Use main player or first player (we know players.length > 0 from check above)
+      player = players.find((p) => p.isMain) ?? players[0]!
     }
 
-    return { success: true, response: { content: "" } }
-  }
-
-  private async getGuildMembership(
-    allyCode: string,
-  ): Promise<CommandResponse<GuildMembershipData>> {
-    const membership =
-      await container.backendApi.players.getGuildMembership(allyCode)
-
-    if (!membership) {
+    // Check guild membership
+    if (!player.guildMembership) {
       return {
         success: false,
         response: {
-          content: `Player ${allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/officer setup register-guild\` first.`,
+          content: `Player ${player.allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/officer setup register-guild\` first.`,
         },
       }
     }
@@ -646,7 +582,7 @@ export class OfficerCommand extends Subcommand {
     return {
       success: true,
       response: { content: "" },
-      value: { allyCode, membership },
+      value: { player, membership: player.guildMembership },
     }
   }
 

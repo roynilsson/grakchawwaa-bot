@@ -1,5 +1,13 @@
 import { BaseApiClient } from './base-client';
 
+export interface PlayerGuildMembership {
+	guildId: string;
+	guildName: string;
+	memberLevel: number;
+	isAdmin: boolean;
+	joinedAt: string;
+}
+
 export interface Player {
 	allyCode: string;
 	discordId?: string;
@@ -7,13 +15,7 @@ export interface Player {
 	name?: string;
 	playerId?: string;
 	isMain?: boolean;
-}
-
-export interface PlayerGuildMembership {
-	guildId: string;
-	guildName: string;
-	memberLevel: number;
-	joinedAt: string;
+	guildMembership: PlayerGuildMembership | null;
 }
 
 export class PlayerApiClient extends BaseApiClient {
@@ -69,13 +71,5 @@ export class PlayerApiClient extends BaseApiClient {
 		await this.request<void>(`/api/players/${allyCode}`, {
 			method: 'DELETE'
 		});
-	}
-
-	// GET /api/players/:allyCode/guild-membership
-	async getGuildMembership(allyCode: string): Promise<PlayerGuildMembership | null> {
-		const response = await this.request<{ membership: PlayerGuildMembership | null }>(
-			`/api/players/${allyCode}/guild-membership`
-		);
-		return response.membership;
 	}
 }

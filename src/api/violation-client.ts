@@ -21,38 +21,37 @@ export interface ViolationSummary {
 }
 
 export class ViolationApiClient extends BaseApiClient {
-	// GET /api/violations?guildId=X&playerId=Y&daysAgo=N&limit=M
+	// GET /api/guilds/:guildId/violations
 	async getViolations(
-		guildId?: string,
+		guildId: string,
 		playerId?: string,
 		daysAgo?: number,
 		limit?: number
 	): Promise<Violation[]> {
 		const params = new URLSearchParams();
-		if (guildId) params.append('guildId', guildId);
 		if (playerId) params.append('playerId', playerId);
 		if (daysAgo) params.append('daysAgo', daysAgo.toString());
 		if (limit) params.append('limit', limit.toString());
 
 		const queryString = params.toString();
-		const url = `/api/violations${queryString ? `?${queryString}` : ''}`;
+		const url = `/api/guilds/${guildId}/violations${queryString ? `?${queryString}` : ''}`;
 		const response = await this.request<{ violations: Violation[]; count: number }>(url);
 		return response.violations;
 	}
 
-	// GET /api/violations/daily/:guildId/:date
+	// GET /api/guilds/:guildId/violations/daily/:date
 	async getDailyViolations(guildId: string, date: Date): Promise<Violation[]> {
 		const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
 		const response = await this.request<{ violations: Violation[]; count: number }>(
-			`/api/violations/daily/${guildId}/${dateStr}`
+			`/api/guilds/${guildId}/violations/daily/${dateStr}`
 		);
 		return response.violations;
 	}
 
-	// GET /api/violations/summary?guildId=X&daysAgo=N
+	// GET /api/guilds/:guildId/violations/summary
 	async getViolationSummary(guildId: string, daysAgo: number = 30): Promise<ViolationSummary[]> {
 		const response = await this.request<{ summary: ViolationSummary[]; period: string }>(
-			`/api/violations/summary?guildId=${guildId}&daysAgo=${daysAgo}`
+			`/api/guilds/${guildId}/violations/summary?daysAgo=${daysAgo}`
 		);
 		return response.summary;
 	}

@@ -27,18 +27,18 @@ export interface Warning {
 }
 
 export class WarningApiClient extends BaseApiClient {
-	// GET /api/warnings/types?guildId=X&search=Y
+	// GET /api/guilds/:guildId/warning-types?search=Y
 	async getTypes(guildId: string, search?: string): Promise<WarningType[]> {
-		const params = new URLSearchParams({ guildId });
+		const params = new URLSearchParams();
 		if (search) params.append('search', search);
 
-		const response = await this.request<{ warningTypes: WarningType[] }>(
-			`/api/warnings/types?${params}`
-		);
+		const queryString = params.toString();
+		const url = `/api/guilds/${guildId}/warning-types${queryString ? `?${queryString}` : ''}`;
+		const response = await this.request<{ warningTypes: WarningType[] }>(url);
 		return response.warningTypes;
 	}
 
-	// POST /api/warnings
+	// POST /api/guilds/:guildId/warnings
 	async issue(params: {
 		guildId: string;
 		playerId: string;
@@ -46,10 +46,14 @@ export class WarningApiClient extends BaseApiClient {
 		note?: string;
 		issuedBy: string;
 	}): Promise<Warning> {
-		const response = await this.request<{ warning: Warning }>('/api/warnings', {
-			method: 'POST',
-			body: JSON.stringify(params),
-		});
+		const { guildId, ...body } = params;
+		const response = await this.request<{ warning: Warning }>(
+			`/api/guilds/${guildId}/warnings`,
+			{
+				method: 'POST',
+				body: JSON.stringify(body),
+			}
+		);
 		return response.warning;
 	}
 }

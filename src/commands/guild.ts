@@ -280,10 +280,9 @@ export class GuildCommand extends Subcommand {
   private async getGuildMembership(
     allyCode: string,
   ): Promise<CommandResponse<GuildMembershipData>> {
-    const membership =
-      await container.backendApi.players.getGuildMembership(allyCode)
+    const player = await container.backendApi.players.get(allyCode)
 
-    if (!membership) {
+    if (!player.guildMembership) {
       return {
         success: false,
         response: {
@@ -295,7 +294,7 @@ export class GuildCommand extends Subcommand {
     return {
       success: true,
       response: { content: "" },
-      value: { allyCode, membership },
+      value: { allyCode, membership: player.guildMembership },
     }
   }
 
@@ -321,10 +320,7 @@ export class GuildCommand extends Subcommand {
       }
     }
 
-    const membership = await container.backendApi.players.getGuildMembership(
-      player.allyCode,
-    )
-    if (!membership) {
+    if (!player.guildMembership) {
       return {
         success: false,
         response: {
@@ -335,7 +331,7 @@ export class GuildCommand extends Subcommand {
 
     try {
       const automations = await container.backendApi.automations.listByGuild(
-        membership.guildId,
+        player.guildMembership.guildId,
       )
       const ticketCollectionNotification = automations.find(
         (a) => a.automationType === "ticket_collection_notification",
@@ -365,8 +361,8 @@ export class GuildCommand extends Subcommand {
     return {
       success: true,
       response: { content: "" },
-      guildId: membership.guildId,
-      guildName: membership.guildName,
+      guildId: player.guildMembership.guildId,
+      guildName: player.guildMembership.guildName,
     }
   }
 
