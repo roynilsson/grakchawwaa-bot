@@ -212,20 +212,23 @@ export class OfficerCommand extends Subcommand {
         }
 
         if (focusedOption.name === "type") {
-          // Fetch warning types and filter by search
+          // Fetch warning types with search parameter
+          const search = focusedOption.value || undefined
           const types = await container.backendApi.warnings.getTypes(
             membership.guildId,
+            search,
           )
-          const search = focusedOption.value.toLowerCase()
-          const filtered = types
-            .filter((t: { name: string }) =>
-              t.name.toLowerCase().includes(search),
-            )
-            .slice(0, 25)
 
-          const choices = filtered.map(
-            (t: { id: number; name: string; severity: number }) => ({
-              name: `${t.name} (Severity: ${t.severity})`,
+          const choices = types.slice(0, 25).map(
+            (t: {
+              id: number
+              name: string
+              severity: number
+              category?: { id: number; name: string } | null
+            }) => ({
+              name: t.category
+                ? `[${t.category.name}] ${t.name} (Severity: ${t.severity})`
+                : `${t.name} (Severity: ${t.severity})`,
               value: t.id.toString(),
             }),
           )
