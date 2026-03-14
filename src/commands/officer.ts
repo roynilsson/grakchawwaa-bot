@@ -39,6 +39,10 @@ export class OfficerCommand extends Subcommand {
             { name: "channel-remove", chatInputRun: "chatInputChannelRemove" },
           ],
         },
+        {
+          name: "warn",
+          chatInputRun: "chatInputWarn",
+        },
       ],
     })
   }
@@ -97,6 +101,41 @@ export class OfficerCommand extends Subcommand {
                     .setAutocomplete(true),
                 ),
             ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("warn")
+            .setDescription(
+              "Issue a warning to a guild member (Officers/Leaders only)",
+            )
+            .addStringOption((option) =>
+              option
+                .setName("player")
+                .setDescription("Guild member to warn")
+                .setRequired(true)
+                .setAutocomplete(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("type")
+                .setDescription("Warning type")
+                .setRequired(true)
+                .setAutocomplete(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("note")
+                .setDescription("Optional note (max 500 chars)")
+                .setRequired(false)
+                .setMaxLength(500),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
         ),
     )
   }
@@ -120,6 +159,79 @@ export class OfficerCommand extends Subcommand {
         )
 
         return interaction.respond(choices.slice(0, 25))
+      } catch {
+        return interaction.respond([])
+      }
+    }
+
+    if (focusedOption.name === "player" || focusedOption.name === "type") {
+      try {
+        // Get the user's main player to determine guild
+        const players = await container.backendApi.players.list({
+          discordId: interaction.user.id,
+          isMain: true,
+        })
+
+        const mainPlayer = players?.[0]
+        if (!mainPlayer) {
+          return interaction.respond([])
+        }
+
+        // Get guild membership
+        const membership = await container.backendApi.players.getGuildMembership(
+          mainPlayer.allyCode,
+        )
+        if (!membership) {
+          return interaction.respond([])
+        }
+
+        if (focusedOption.name === "player") {
+          // Fetch guild members and filter by search
+          const members = await container.backendApi.guilds.getMembers(
+            membership.guildId,
+          )
+          const search = focusedOption.value.toLowerCase()
+          const filtered = members
+            .filter(
+              (m: { player: { name?: string; allyCode: string } }) =>
+                m.player.name?.toLowerCase().includes(search) ||
+                m.player.allyCode.includes(search),
+            )
+            .slice(0, 25)
+
+          const choices = filtered.map(
+            (m: { player: { name?: string; allyCode: string } }) => ({
+              name: m.player.name
+                ? `${m.player.name} (${m.player.allyCode})`
+                : m.player.allyCode,
+              value: m.player.allyCode,
+            }),
+          )
+
+          return interaction.respond(choices)
+        }
+
+        if (focusedOption.name === "type") {
+          // Fetch warning types and filter by search
+          const types = await container.backendApi.warnings.getTypes(
+            membership.guildId,
+          )
+          const search = focusedOption.value.toLowerCase()
+          const filtered = types
+            .filter((t: { name: string }) =>
+              t.name.toLowerCase().includes(search),
+            )
+            .slice(0, 25)
+
+          const choices = filtered.map(
+            (t: { id: number; name: string; severity: number }) => ({
+              name: `${t.name} (Severity: ${t.severity})`,
+              value: t.id.toString(),
+            }),
+          )
+
+          return interaction.respond(choices)
+        }
       } catch {
         return interaction.respond([])
       }
@@ -324,6 +436,107 @@ export class OfficerCommand extends Subcommand {
       }
 
       container.logger.error("Error in channel-remove command:", error)
+      return await interaction.editReply({
+        content:
+          "An error occurred while processing your request. Please try again later.",
+      })
+    }
+  }
+
+  // ============================================
+  // /officer warn
+  // ============================================
+  public async chatInputWarn(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply()
+
+      // Get and validate ally code
+      const allyCodeResult = await this.resolveAllyCode(interaction)
+      if (!allyCodeResult.success || !allyCodeResult.value) {
+        return await interaction.editReply(allyCodeResult.response)
+      }
+
+      const validationResult = await this.validateAllyCodeOwnership(
+        interaction.user.id,
+        allyCodeResult.value,
+      )
+      if (!validationResult.success) {
+        return await interaction.editReply(validationResult.response)
+      }
+
+      // Get guild membership and check officer permissions
+      const membershipResult = await this.getGuildMembership(
+        allyCodeResult.value,
+      )
+      if (!membershipResult.success || !membershipResult.value) {
+        return await interaction.editReply(membershipResult.response)
+      }
+
+      if (membershipResult.value.membership.memberLevel < 3) {
+        return await interaction.editReply({
+          content: "Only guild leaders and officers can issue warnings.",
+        })
+      }
+
+      // Get command options
+      const playerAllyCode = interaction.options.getString("player", true)
+      const warningTypeId = parseInt(
+        interaction.options.getString("type", true),
+        10,
+      )
+      const note = interaction.options.getString("note") ?? undefined
+
+      // Validate player exists in guild
+      let targetMember
+      try {
+        targetMember = await container.backendApi.guilds.getMember(
+          membershipResult.value.membership.guildId,
+          playerAllyCode,
+        )
+      } catch {
+        return await interaction.editReply({
+          content: "Player not found in your guild.",
+        })
+      }
+
+      // Issue the warning
+      try {
+        const warning = await container.backendApi.warnings.issue({
+          guildId: membershipResult.value.membership.guildId,
+          playerId: playerAllyCode,
+          warningTypeId,
+          note,
+          issuedBy: allyCodeResult.value,
+        })
+
+        const playerName = targetMember.player.name || playerAllyCode
+        let response = `Warned **${playerName}** with **${warning.warningType.name}** (Severity: ${warning.warningType.severity})`
+
+        if (note) {
+          const truncatedNote =
+            note.length > 100 ? note.slice(0, 100) + "..." : note
+          response += `\nNote: ${truncatedNote}`
+        }
+
+        return await interaction.editReply({ content: response })
+      } catch (error) {
+        container.logger.error("Failed to issue warning:", error)
+        return await interaction.editReply({
+          content: "Failed to issue warning. Please try again later.",
+        })
+      }
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content:
+            "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in warn command:", error)
       return await interaction.editReply({
         content:
           "An error occurred while processing your request. Please try again later.",
