@@ -1,3 +1,4 @@
+import "@sapphire/plugin-subcommands/register"
 import { container } from "@sapphire/pieces"
 import { BackendApiClient } from "./api"
 import { DiscordBotClient } from "./discord-bot-client"

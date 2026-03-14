@@ -1,9 +1,14 @@
-import { Command } from "@sapphire/framework"
+import { Subcommand } from "@sapphire/plugin-subcommands"
 import { container } from "@sapphire/pieces"
-import type { AutocompleteInteraction } from "discord.js"
-import { EmbedBuilder } from "discord.js"
-import type { GuildMember } from "../../api/guild-client"
-import type { PlayerGuildMembership } from "../../api/player-client"
+import {
+  ChannelType,
+  EmbedBuilder,
+  type AutocompleteInteraction,
+} from "discord.js"
+import type { GuildMember } from "../api/guild-client"
+import type { PlayerGuildMembership } from "../api/player-client"
+import { DiscordBotClient } from "../discord-bot-client"
+import { ViolationSummaryService } from "../services/violation-summary"
 
 interface CommandResponse<T = undefined> {
   success: boolean
@@ -19,33 +24,57 @@ interface GuildMembershipData {
   membership: PlayerGuildMembership
 }
 
-export class GetGuildMembersCommand extends Command {
-  public constructor(context: Command.LoaderContext, options: Command.Options) {
+export class GuildCommand extends Subcommand {
+  public constructor(
+    context: Subcommand.LoaderContext,
+    options: Subcommand.Options,
+  ) {
     super(context, {
       ...options,
+      name: "guild",
+      subcommands: [
+        { name: "members", chatInputRun: "chatInputMembers" },
+        { name: "tickets", chatInputRun: "chatInputTickets" },
+      ],
     })
   }
 
-  public override registerApplicationCommands(registry: Command.Registry) {
-    registry.registerChatInputCommand(
-      (builder) =>
-        builder
-          .setName("get-guild-members")
-          .setDescription("Get a list of guild members")
-          .addStringOption((option) =>
-            option
-              .setName("name")
-              .setDescription("Filter members by name (not case-sensitive)")
-              .setRequired(false),
-          )
-          .addStringOption((option) =>
-            option
-              .setName("ally-code")
-              .setDescription("Select one of your registered accounts")
-              .setRequired(false)
-              .setAutocomplete(true),
-          ),
-      { idHints: ["1374077113417732208", "1374084340669218846"] },
+  public override registerApplicationCommands(registry: Subcommand.Registry) {
+    registry.registerChatInputCommand((builder) =>
+      builder
+        .setName("guild")
+        .setDescription("Guild information commands")
+        .addSubcommand((sub) =>
+          sub
+            .setName("members")
+            .setDescription("Get a list of guild members")
+            .addStringOption((option) =>
+              option
+                .setName("name")
+                .setDescription("Filter members by name (not case-sensitive)")
+                .setRequired(false),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("tickets")
+            .setDescription("Generate a custom period ticket summary")
+            .addIntegerOption((option) =>
+              option
+                .setName("days")
+                .setDescription("Number of days to include in the summary (1-90)")
+                .setRequired(true)
+                .setMinValue(1)
+                .setMaxValue(90),
+            ),
+        ),
     )
   }
 
@@ -74,22 +103,22 @@ export class GetGuildMembersCommand extends Command {
     }
   }
 
-  public override async chatInputRun(
-    interaction: Command.ChatInputCommandInteraction,
+  // ============================================
+  // /guild members
+  // ============================================
+  public async chatInputMembers(
+    interaction: Subcommand.ChatInputCommandInteraction,
   ) {
     try {
       await interaction.deferReply()
 
-      // Get the name filter if provided
       const nameFilter = interaction.options.getString("name")?.toLowerCase()
 
-      // Get ally code (from autocomplete selection or user's main account)
       const allyCodeResult = await this.resolveAllyCode(interaction)
       if (!allyCodeResult.success || !allyCodeResult.value) {
         return await interaction.editReply(allyCodeResult.response)
       }
 
-      // Get guild membership from backend
       const membershipResult = await this.getGuildMembership(
         allyCodeResult.value,
       )
@@ -97,7 +126,6 @@ export class GetGuildMembersCommand extends Command {
         return await interaction.editReply(membershipResult.response)
       }
 
-      // Get guild members from backend
       const members = await container.backendApi.guilds.getMembers(
         membershipResult.value.membership.guildId,
       )
@@ -108,7 +136,6 @@ export class GetGuildMembersCommand extends Command {
         })
       }
 
-      // Filter members by name if a filter was provided
       let filteredMembers = members
       if (nameFilter) {
         filteredMembers = members.filter((member) =>
@@ -122,14 +149,13 @@ export class GetGuildMembersCommand extends Command {
         }
       }
 
-      // Format and send the member information
       await this.sendMemberList(
         interaction,
         filteredMembers,
         membershipResult.value.membership.guildName,
       )
     } catch (error) {
-      container.logger.error("Error in get-guild-members command:", error)
+      container.logger.error("Error in guild members command:", error)
       if (!interaction.deferred) {
         return await interaction.reply({
           content:
@@ -144,13 +170,83 @@ export class GetGuildMembersCommand extends Command {
     }
   }
 
+  // ============================================
+  // /guild tickets
+  // ============================================
+  public async chatInputTickets(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      const days = interaction.options.getInteger("days")
+      if (!days || days < 1 || days > 90) {
+        return await interaction.reply({
+          content: "Please provide a valid number of days (1-90).",
+          ephemeral: true,
+        })
+      }
+
+      const channel = interaction.channel
+      if (
+        !channel ||
+        !(
+          channel.type === ChannelType.GuildText ||
+          channel.type === ChannelType.DM ||
+          channel.type === ChannelType.GuildAnnouncement
+        )
+      ) {
+        return await interaction.reply({
+          content: "This command can only be used in a text channel or DM.",
+          ephemeral: true,
+        })
+      }
+
+      await interaction.deferReply()
+
+      const guildRegistration = await this.getGuildRegistration(interaction)
+      if (!guildRegistration.success) {
+        return await interaction.editReply(guildRegistration.response)
+      }
+
+      const client = this.container.client as unknown as DiscordBotClient
+      const summaryService = new ViolationSummaryService(client)
+
+      await summaryService.generateCustomPeriodSummary(
+        guildRegistration.guildId!,
+        channel.id,
+        guildRegistration.guildName!,
+        days,
+      )
+
+      return await interaction.editReply({
+        content: `Ticket summary for the last ${days} days has been posted.`,
+      })
+    } catch (error) {
+      console.error("Error in guild tickets command:", error)
+
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content:
+            "An error occurred while generating the ticket summary. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      return await interaction.editReply({
+        content:
+          "An error occurred while generating the ticket summary. Please try again later.",
+      })
+    }
+  }
+
+  // ============================================
+  // Helper methods
+  // ============================================
   private async resolveAllyCode(
-    interaction: Command.ChatInputCommandInteraction,
+    interaction: Subcommand.ChatInputCommandInteraction,
   ): Promise<CommandResponse<string>> {
     const inputAllyCode = interaction.options.getString("ally-code")
 
     if (inputAllyCode) {
-      // User selected from autocomplete
       return {
         success: true,
         response: { content: "" },
@@ -158,7 +254,6 @@ export class GetGuildMembersCommand extends Command {
       }
     }
 
-    // No ally code provided, use main account
     const players = await container.backendApi.players.list({
       discordId: interaction.user.id,
       isMain: true,
@@ -170,7 +265,7 @@ export class GetGuildMembersCommand extends Command {
         success: false,
         response: {
           content:
-            "You don't have a registered ally code. Please register with `/register-player` first.",
+            "You don't have a registered ally code. Please register with `/player register` first.",
         },
       }
     }
@@ -192,7 +287,7 @@ export class GetGuildMembersCommand extends Command {
       return {
         success: false,
         response: {
-          content: `Player ${allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/register-guild\` first.`,
+          content: `Player ${allyCode} is not a member of any registered guild. Please ensure the guild is registered with \`/officer setup register-guild\` first.`,
         },
       }
     }
@@ -204,8 +299,79 @@ export class GetGuildMembersCommand extends Command {
     }
   }
 
+  private async getGuildRegistration(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ): Promise<{
+    success: boolean
+    response: { content: string }
+    guildId?: string
+    guildName?: string
+  }> {
+    const players = await container.backendApi.players.list({
+      discordId: interaction.user.id,
+    })
+    const player = players.find((p) => p.isMain) ?? players[0]
+    if (!player?.allyCode) {
+      return {
+        success: false,
+        response: {
+          content:
+            "You don't have a registered ally code. Please register with `/player register` first.",
+        },
+      }
+    }
+
+    const membership = await container.backendApi.players.getGuildMembership(
+      player.allyCode,
+    )
+    if (!membership) {
+      return {
+        success: false,
+        response: {
+          content: "Could not find your Star Wars guild data.",
+        },
+      }
+    }
+
+    try {
+      const automations = await container.backendApi.automations.listByGuild(
+        membership.guildId,
+      )
+      const ticketCollectionNotification = automations.find(
+        (a) => a.automationType === "ticket_collection_notification",
+      )
+      const config = ticketCollectionNotification?.config as
+        | { channelId?: string }
+        | undefined
+      if (!config?.channelId) {
+        return {
+          success: false,
+          response: {
+            content:
+              "Your Star Wars guild is not registered for ticket collection. Please configure ticket collection via the web dashboard.",
+          },
+        }
+      }
+    } catch {
+      return {
+        success: false,
+        response: {
+          content:
+            "Your Star Wars guild is not registered for ticket collection. Please configure ticket collection via the web dashboard.",
+        },
+      }
+    }
+
+    return {
+      success: true,
+      response: { content: "" },
+      guildId: membership.guildId,
+      guildName: membership.guildName,
+    }
+  }
+
   private async sendMemberList(
-    interaction: Command.ChatInputCommandInteraction,
+    interaction: Subcommand.ChatInputCommandInteraction,
     members: GuildMember[],
     guildName: string,
   ) {
@@ -218,7 +384,6 @@ export class GetGuildMembersCommand extends Command {
     const membersPerEmbed = 10
     const pageCount = Math.ceil(members.length / membersPerEmbed)
 
-    // Create first embed
     const firstEmbed = this.createMemberEmbed(
       members.slice(0, membersPerEmbed),
       guildName,
@@ -226,10 +391,8 @@ export class GetGuildMembersCommand extends Command {
       pageCount,
     )
 
-    // Send first embed
     await interaction.editReply({ embeds: [firstEmbed] })
 
-    // Send remaining embeds as follow-ups
     for (let page = 2; page <= pageCount; page++) {
       const startIdx = (page - 1) * membersPerEmbed
       const endIdx = Math.min(startIdx + membersPerEmbed, members.length)
@@ -265,14 +428,12 @@ export class GetGuildMembersCommand extends Command {
         ? member.player.galacticPower.toLocaleString()
         : "N/A"
 
-      // Format lastActivityTime as a time ago string
       let lastActivityAgo = "N/A"
       if (member.player.lastActivityTime) {
         const lastActivityDate = new Date(member.player.lastActivityTime)
         lastActivityAgo = this.formatTimeAgo(lastActivityDate.getTime(), true)
       }
 
-      // Format join time
       let formattedJoinTime = "N/A"
       if (member.joinedAt) {
         const joinTime = new Date(member.joinedAt)
@@ -298,14 +459,7 @@ export class GetGuildMembersCommand extends Command {
     return embed
   }
 
-  /**
-   * Formats time as an "X years, Y days, Z hours, W minutes ago" string
-   * @param timestamp Timestamp in seconds or milliseconds
-   * @param isMilliseconds Whether the timestamp is in milliseconds
-   * @returns Formatted time ago string
-   */
   private formatTimeAgo(timestamp: number, isMilliseconds = false): string {
-    // Convert milliseconds to seconds if needed
     const timeInSeconds = isMilliseconds
       ? Math.floor(timestamp / 1000)
       : timestamp

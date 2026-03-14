@@ -31,6 +31,7 @@
     "@sapphire/discord.js-utilities": "^7.3.2",
     "@sapphire/framework": "^5.4.0",
     "@sapphire/pieces": "^4.4.1",
+    "@sapphire/plugin-subcommands": "^7.0.1",
     "discord.js": "~14.24.2"
   },
   "devDependencies": {
