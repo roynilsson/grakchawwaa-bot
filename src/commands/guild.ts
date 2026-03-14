@@ -332,6 +332,7 @@ export class GuildCommand extends Subcommand {
     try {
       const automations = await container.backendApi.automations.listByGuild(
         player.guildMembership.guildId,
+        player.allyCode,
       )
       const ticketCollectionNotification = automations.find(
         (a) => a.automationType === "ticket_collection_notification",

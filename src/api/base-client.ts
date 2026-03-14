@@ -1,3 +1,8 @@
+export interface RequestOptions extends Omit<RequestInit, 'headers'> {
+	headers?: Record<string, string>;
+	callerAllyCode?: string;
+}
+
 export class BaseApiClient {
 	protected baseUrl: string;
 	protected apiKey: string | undefined;
@@ -7,7 +12,7 @@ export class BaseApiClient {
 		this.apiKey = apiKey;
 	}
 
-	protected async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+	protected async request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
 		const maxRetries = 3;
 		let lastError: Error | undefined;
 
@@ -16,11 +21,15 @@ export class BaseApiClient {
 				const url = `${this.baseUrl}${endpoint}`;
 				const headers: Record<string, string> = {
 					'Content-Type': 'application/json',
-					...(options?.headers as Record<string, string>)
+					...(options?.headers)
 				};
 
 				if (this.apiKey) {
 					headers['x-api-key'] = this.apiKey;
+				}
+
+				if (options?.callerAllyCode) {
+					headers['x-caller-ally-code'] = options.callerAllyCode;
 				}
 
 				const response = await fetch(url, {

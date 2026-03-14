@@ -3,6 +3,7 @@ import { GuildApiClient } from './guild-client';
 import { ViolationApiClient } from './violation-client';
 import { AutomationApiClient } from './automation-client';
 import { WarningApiClient } from './warning-client';
+import { RaidApiClient } from './raid-client';
 
 export class BackendApiClient {
 	public players: PlayerApiClient;
@@ -10,6 +11,7 @@ export class BackendApiClient {
 	public violations: ViolationApiClient;
 	public automations: AutomationApiClient;
 	public warnings: WarningApiClient;
+	public raids: RaidApiClient;
 
 	constructor(baseUrl: string, apiKey?: string) {
 		this.players = new PlayerApiClient(baseUrl, apiKey);
@@ -17,6 +19,7 @@ export class BackendApiClient {
 		this.violations = new ViolationApiClient(baseUrl, apiKey);
 		this.automations = new AutomationApiClient(baseUrl, apiKey);
 		this.warnings = new WarningApiClient(baseUrl, apiKey);
+		this.raids = new RaidApiClient(baseUrl, apiKey);
 	}
 }
 

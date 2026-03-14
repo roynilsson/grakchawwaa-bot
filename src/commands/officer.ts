@@ -215,6 +215,7 @@ export class OfficerCommand extends Subcommand {
           const types = await container.backendApi.warnings.getTypes(
             membership.guildId,
             search,
+            mainPlayer.allyCode,
           )
 
           const choices = types.slice(0, 25).map(
@@ -274,10 +275,13 @@ export class OfficerCommand extends Subcommand {
       }
 
       try {
-        await container.backendApi.guilds.create({
-          guildId: verification.guildId!,
-          name: verification.guildName!,
-        })
+        await container.backendApi.guilds.create(
+          {
+            guildId: verification.guildId!,
+            name: verification.guildName!,
+          },
+          allyCode,
+        )
 
         return await interaction.editReply({
           content: `Successfully registered guild **${verification.guildName}** with the bot!\n\nYou can now configure automations and channels via the web dashboard.`,
@@ -324,7 +328,7 @@ export class OfficerCommand extends Subcommand {
         return await interaction.editReply(result.response)
       }
 
-      const { membership } = result.value
+      const { player, membership } = result.value
       if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content:
@@ -336,6 +340,7 @@ export class OfficerCommand extends Subcommand {
         membership.guildId,
         channel.value.id,
         channel.value.name,
+        player.allyCode,
       )
       if (!registrationResult.success) {
         return await interaction.editReply(registrationResult.response)
@@ -380,7 +385,7 @@ export class OfficerCommand extends Subcommand {
         return await interaction.editReply(result.response)
       }
 
-      const { membership } = result.value
+      const { player, membership } = result.value
       if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content:
@@ -391,6 +396,7 @@ export class OfficerCommand extends Subcommand {
       const unregistrationResult = await this.unregisterChannel(
         membership.guildId,
         channel.value.id,
+        player.allyCode,
       )
       if (!unregistrationResult.success) {
         return await interaction.editReply(unregistrationResult.response)
@@ -466,6 +472,7 @@ export class OfficerCommand extends Subcommand {
           warningTypeId,
           note,
           issuedBy: player.allyCode,
+          callerAllyCode: player.allyCode,
         })
 
         const playerName = targetMember.player.name || playerAllyCode
@@ -590,12 +597,14 @@ export class OfficerCommand extends Subcommand {
     guildId: string,
     discordChannelId: string,
     channelName: string,
+    callerAllyCode: string,
   ): Promise<CommandResponse> {
     try {
       const existingChannel =
         await container.backendApi.guilds.findChannelByDiscordId(
           guildId,
           discordChannelId,
+          callerAllyCode,
         )
 
       if (existingChannel) {
@@ -607,10 +616,14 @@ export class OfficerCommand extends Subcommand {
         }
       }
 
-      await container.backendApi.guilds.addChannel(guildId, {
-        discordChannelId,
-        name: channelName,
-      })
+      await container.backendApi.guilds.addChannel(
+        guildId,
+        {
+          discordChannelId,
+          name: channelName,
+        },
+        callerAllyCode,
+      )
 
       return { success: true, response: { content: "" } }
     } catch (error) {
@@ -627,12 +640,14 @@ export class OfficerCommand extends Subcommand {
   private async unregisterChannel(
     guildId: string,
     discordChannelId: string,
+    callerAllyCode: string,
   ): Promise<CommandResponse> {
     try {
       const registeredChannel =
         await container.backendApi.guilds.findChannelByDiscordId(
           guildId,
           discordChannelId,
+          callerAllyCode,
         )
 
       if (!registeredChannel) {
@@ -647,6 +662,7 @@ export class OfficerCommand extends Subcommand {
       await container.backendApi.guilds.removeChannel(
         guildId,
         registeredChannel.id,
+        callerAllyCode,
       )
 
       return { success: true, response: { content: "" } }

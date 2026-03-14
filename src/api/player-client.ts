@@ -48,7 +48,7 @@ export class PlayerApiClient extends BaseApiClient {
 		return response.player;
 	}
 
-	// PUT /api/players/:allyCode
+	// PUT /api/players/:allyCode (requirePlayer - caller must own this ally code)
 	async update(
 		allyCode: string,
 		data: Partial<{
@@ -61,15 +61,17 @@ export class PlayerApiClient extends BaseApiClient {
 	): Promise<Player> {
 		const response = await this.request<{ player: Player }>(`/api/players/${allyCode}`, {
 			method: 'PUT',
-			body: JSON.stringify(data)
+			body: JSON.stringify(data),
+			callerAllyCode: allyCode
 		});
 		return response.player;
 	}
 
-	// DELETE /api/players/:allyCode
+	// DELETE /api/players/:allyCode (requirePlayer - caller must own this ally code)
 	async delete(allyCode: string): Promise<void> {
 		await this.request<void>(`/api/players/${allyCode}`, {
-			method: 'DELETE'
+			method: 'DELETE',
+			callerAllyCode: allyCode
 		});
 	}
 }

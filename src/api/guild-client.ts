@@ -57,33 +57,37 @@ export class GuildApiClient extends BaseApiClient {
 		return response.guild;
 	}
 
-	// POST /api/guilds
-	async create(data: { guildId: string; name: string }): Promise<Guild> {
+	// POST /api/guilds (requireOfficer - caller must be officer of the guild being registered)
+	async create(data: { guildId: string; name: string }, callerAllyCode: string): Promise<Guild> {
 		const response = await this.request<{ guild: Guild }>('/api/guilds', {
 			method: 'POST',
-			body: JSON.stringify(data)
+			body: JSON.stringify(data),
+			callerAllyCode
 		});
 		return response.guild;
 	}
 
-	// PUT /api/guilds/:id
+	// PUT /api/guilds/:id (requireOfficer)
 	async update(
 		guildId: string,
 		data: {
 			name?: string;
-		}
+		},
+		callerAllyCode: string
 	): Promise<Guild> {
 		const response = await this.request<{ guild: Guild }>(`/api/guilds/${guildId}`, {
 			method: 'PUT',
-			body: JSON.stringify(data)
+			body: JSON.stringify(data),
+			callerAllyCode
 		});
 		return response.guild;
 	}
 
-	// DELETE /api/guilds/:id
-	async delete(guildId: string): Promise<void> {
+	// DELETE /api/guilds/:id (requireOfficer)
+	async delete(guildId: string, callerAllyCode: string): Promise<void> {
 		await this.request<void>(`/api/guilds/${guildId}`, {
-			method: 'DELETE'
+			method: 'DELETE',
+			callerAllyCode
 		});
 	}
 
@@ -102,10 +106,12 @@ export class GuildApiClient extends BaseApiClient {
 		return response.member;
 	}
 
-	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink
-	async checkTickets(guildId: string): Promise<TicketCheckResult> {
+	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink (requireOfficerOrApiKey)
+	// callerAllyCode is optional - if not provided, API key auth is used
+	async checkTickets(guildId: string, callerAllyCode?: string): Promise<TicketCheckResult> {
 		return this.request<TicketCheckResult>(`/api/guilds/${guildId}/ticket-check`, {
-			method: 'POST'
+			method: 'POST',
+			...(callerAllyCode && { callerAllyCode })
 		});
 	}
 
@@ -123,42 +129,47 @@ export class GuildApiClient extends BaseApiClient {
 		});
 	}
 
-	// GET /api/guilds/:guildId/channels - List approved channels
-	async listChannels(guildId: string): Promise<GuildChannel[]> {
+	// GET /api/guilds/:guildId/channels - List approved channels (requireOfficer)
+	async listChannels(guildId: string, callerAllyCode: string): Promise<GuildChannel[]> {
 		const response = await this.request<{ channels: GuildChannel[] }>(
-			`/api/guilds/${guildId}/channels`
+			`/api/guilds/${guildId}/channels`,
+			{ callerAllyCode }
 		);
 		return response.channels;
 	}
 
-	// POST /api/guilds/:guildId/channels - Add approved channel
+	// POST /api/guilds/:guildId/channels - Add approved channel (requireOfficer)
 	async addChannel(
 		guildId: string,
-		data: { discordChannelId: string; name: string }
+		data: { discordChannelId: string; name: string },
+		callerAllyCode: string
 	): Promise<GuildChannel> {
 		const response = await this.request<{ channel: GuildChannel }>(
 			`/api/guilds/${guildId}/channels`,
 			{
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(data),
+				callerAllyCode
 			}
 		);
 		return response.channel;
 	}
 
-	// DELETE /api/guilds/:guildId/channels/:id - Remove approved channel
-	async removeChannel(guildId: string, channelId: number): Promise<void> {
+	// DELETE /api/guilds/:guildId/channels/:id - Remove approved channel (requireOfficer)
+	async removeChannel(guildId: string, channelId: number, callerAllyCode: string): Promise<void> {
 		await this.request<void>(`/api/guilds/${guildId}/channels/${channelId}`, {
-			method: 'DELETE'
+			method: 'DELETE',
+			callerAllyCode
 		});
 	}
 
-	// GET channel by Discord ID (convenience method)
+	// GET channel by Discord ID (convenience method) (requireOfficer)
 	async findChannelByDiscordId(
 		guildId: string,
-		discordChannelId: string
+		discordChannelId: string,
+		callerAllyCode: string
 	): Promise<GuildChannel | null> {
-		const channels = await this.listChannels(guildId);
+		const channels = await this.listChannels(guildId, callerAllyCode);
 		return channels.find((c) => c.discordChannelId === discordChannelId) ?? null;
 	}
 }

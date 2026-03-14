@@ -1,8 +1,9 @@
+import { container } from '@sapphire/pieces';
 import { TextChannel, userMention, EmbedBuilder } from 'discord.js';
 import type { Automation } from '../api/automation-client';
 import type { NotificationProcessor, NotificationResult } from './NotificationProcessor';
 import type { DiscordBotClient } from '../discord-bot-client';
-import { getActiveRaid, type RaidData } from '../api/raid-client';
+import type { RaidData } from '../api/raid-client';
 
 export class RaidReminderProcessor implements NotificationProcessor {
 	private client: DiscordBotClient;
@@ -19,8 +20,8 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		}
 
 		try {
-			// Fetch raid data from backend
-			const raidData = await getActiveRaid(automation.guildId);
+			// Fetch raid data from backend (API key auth - no caller ally code needed)
+			const raidData = await container.backendApi.raids.getActiveRaid(automation.guildId);
 
 			if (!raidData || !raidData.raid) {
 				console.log(`No active raid for guild ${automation.guildId}`);

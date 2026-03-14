@@ -21,9 +21,10 @@ export interface ViolationSummary {
 }
 
 export class ViolationApiClient extends BaseApiClient {
-	// GET /api/guilds/:guildId/violations
+	// GET /api/guilds/:guildId/violations (requireOfficer)
 	async getViolations(
 		guildId: string,
+		callerAllyCode: string,
 		playerId?: string,
 		daysAgo?: number,
 		limit?: number
@@ -35,23 +36,27 @@ export class ViolationApiClient extends BaseApiClient {
 
 		const queryString = params.toString();
 		const url = `/api/guilds/${guildId}/violations${queryString ? `?${queryString}` : ''}`;
-		const response = await this.request<{ violations: Violation[]; count: number }>(url);
+		const response = await this.request<{ violations: Violation[]; count: number }>(url, { callerAllyCode });
 		return response.violations;
 	}
 
-	// GET /api/guilds/:guildId/violations/daily/:date
-	async getDailyViolations(guildId: string, date: Date): Promise<Violation[]> {
+	// GET /api/guilds/:guildId/violations/daily/:date (requireOfficerOrApiKey)
+	// callerAllyCode is optional - if not provided, API key auth is used
+	async getDailyViolations(guildId: string, date: Date, callerAllyCode?: string): Promise<Violation[]> {
 		const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
 		const response = await this.request<{ violations: Violation[]; count: number }>(
-			`/api/guilds/${guildId}/violations/daily/${dateStr}`
+			`/api/guilds/${guildId}/violations/daily/${dateStr}`,
+			callerAllyCode ? { callerAllyCode } : undefined
 		);
 		return response.violations;
 	}
 
-	// GET /api/guilds/:guildId/violations/summary
-	async getViolationSummary(guildId: string, daysAgo: number = 30): Promise<ViolationSummary[]> {
+	// GET /api/guilds/:guildId/violations/summary (requireOfficerOrApiKey)
+	// callerAllyCode is optional - if not provided, API key auth is used
+	async getViolationSummary(guildId: string, daysAgo: number = 30, callerAllyCode?: string): Promise<ViolationSummary[]> {
 		const response = await this.request<{ summary: ViolationSummary[]; period: string }>(
-			`/api/guilds/${guildId}/violations/summary?daysAgo=${daysAgo}`
+			`/api/guilds/${guildId}/violations/summary?daysAgo=${daysAgo}`,
+			callerAllyCode ? { callerAllyCode } : undefined
 		);
 		return response.summary;
 	}

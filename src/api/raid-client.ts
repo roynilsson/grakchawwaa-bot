@@ -1,4 +1,4 @@
-import { container } from '@sapphire/pieces';
+import { BaseApiClient } from './base-client';
 
 export interface RaidData {
   raid: {
@@ -26,28 +26,30 @@ export interface RaidData {
   }>;
 }
 
-export async function getActiveRaid(guildId: string): Promise<RaidData | null> {
-  try {
-    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000';
-    const response = await fetch(
-      `${backendUrl}/api/guilds/${guildId}/raids/active`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
+export class RaidApiClient extends BaseApiClient {
+  // GET /api/guilds/:guildId/raids/active (requireGuildMemberOrApiKey)
+  // callerAllyCode is optional - if not provided, API key auth is used
+  async getActiveRaid(guildId: string, callerAllyCode?: string): Promise<RaidData | null> {
+    try {
+      return await this.request<RaidData>(
+        `/api/guilds/${guildId}/raids/active`,
+        callerAllyCode ? { callerAllyCode } : undefined
+      );
+    } catch (error) {
+      // Return null for 404 (no active raid)
+      if (error instanceof Error && error.message.includes('404')) {
         return null;
       }
-      throw new Error(`Failed to fetch raid data: ${response.statusText}`);
+      throw error;
     }
+  }
 
-    return (await response.json()) as RaidData;
-  } catch (error) {
-    container.logger.error('Error fetching active raid:', error);
-    throw error;
+  // GET /api/guilds/:guildId/raids/history (requireGuildMember)
+  async getRaidHistory(guildId: string, callerAllyCode: string): Promise<RaidData[]> {
+    const response = await this.request<{ raids: RaidData[] }>(
+      `/api/guilds/${guildId}/raids/history`,
+      { callerAllyCode }
+    );
+    return response.raids;
   }
 }
