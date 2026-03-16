@@ -4,6 +4,7 @@ import type { NotificationProcessor } from '../processors/NotificationProcessor'
 import { TicketReminderProcessor } from '../processors/TicketReminderProcessor';
 import { TicketCollectionNotificationProcessor } from '../processors/TicketCollectionNotificationProcessor';
 import { RaidReminderProcessor } from '../processors/RaidReminderProcessor';
+import { WarningSummaryProcessor } from '../processors/WarningSummaryProcessor';
 import { ViolationSummaryService } from '../services/violation-summary';
 
 const CHECK_FREQUENCY_MS = 60 * 1000; // Check every minute
@@ -20,7 +21,8 @@ export class NotificationWorker {
 		this.processors = {
 			ticket_reminder: new TicketReminderProcessor(client),
 			ticket_collection_notification: new TicketCollectionNotificationProcessor(client, summaryService),
-			raid_reminder: new RaidReminderProcessor(client)
+			raid_reminder: new RaidReminderProcessor(client),
+			warning_summary: new WarningSummaryProcessor(client)
 		};
 	}
 
