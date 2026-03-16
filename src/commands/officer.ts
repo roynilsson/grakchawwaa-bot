@@ -552,7 +552,7 @@ export class OfficerCommand extends Subcommand {
         return await interaction.editReply(result.response)
       }
 
-      const { membership } = result.value
+      const { player, membership } = result.value
       if (membership.memberLevel < 3) {
         return await interaction.editReply({
           content: "Only guild leaders and officers can view warning summaries.",
@@ -581,6 +581,7 @@ export class OfficerCommand extends Subcommand {
         membership.guildId,
         periods,
         limit,
+        { callerAllyCode: player.allyCode },
       )
 
       // Format response
