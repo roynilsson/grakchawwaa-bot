@@ -27,11 +27,12 @@ export class TicketCollectionNotificationProcessor implements NotificationProces
 		}
 
 		try {
-			// Get today's violations from backend
+			// Get today's violations from backend (use leader's ally code for auth)
 			const today = new Date();
 			const violations = await container.backendApi.violations.getDailyViolations(
 				automation.guildId,
-				today
+				today,
+				automation.leaderAllyCode
 			);
 
 			// Get guild name

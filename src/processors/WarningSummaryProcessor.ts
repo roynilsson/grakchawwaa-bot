@@ -28,8 +28,13 @@ export class WarningSummaryProcessor implements NotificationProcessor {
 			const periods = config.periods || [30, 90, 180];
 			const limit = config.limit || 10;
 
-			// Get summary from backend
-			const summary = await container.backendApi.warnings.getSummary(automation.guildId, periods, limit);
+			// Get summary from backend (use leader's ally code for auth)
+			const summary = await container.backendApi.warnings.getSummary(
+				automation.guildId,
+				periods,
+				limit,
+				{ callerAllyCode: automation.leaderAllyCode }
+			);
 
 			// Get guild name
 			const guild = await container.backendApi.guilds.get(automation.guildId);

@@ -17,6 +17,7 @@ export interface Automation {
 	lastRunAt?: string;
 	config: Record<string, unknown>;
 	resolvedChannel?: ResolvedChannel;
+	leaderAllyCode?: string; // Guild leader's ally code for bot auth
 	enabled: boolean;
 	createdAt: string;
 	updatedAt: string;

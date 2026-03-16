@@ -22,8 +22,11 @@ export class TicketReminderProcessor implements NotificationProcessor {
 		}
 
 		try {
-			// Fetch live ticket data from backend
-			const ticketData = await container.backendApi.guilds.checkTickets(automation.guildId);
+			// Fetch live ticket data from backend (use leader's ally code for auth)
+			const ticketData = await container.backendApi.guilds.checkTickets(
+				automation.guildId,
+				automation.leaderAllyCode
+			);
 
 			// Filter players below threshold
 			const violators = ticketData.memberTickets.filter((m) => m.ticketCount < TICKET_THRESHOLD);
