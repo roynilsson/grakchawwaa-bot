@@ -1,4 +1,16 @@
-import { BaseApiClient } from './base-client';
+import { BaseApiClient, RequestOptions } from './base-client';
+
+export interface WarningSummaryPlayer {
+	allyCode: string;
+	name: string | null;
+	values: number[];
+}
+
+export interface WarningSummary {
+	periods: number[];
+	basePeriod: number;
+	players: WarningSummaryPlayer[];
+}
 
 export interface WarningType {
 	id: number;
@@ -57,5 +69,24 @@ export class WarningApiClient extends BaseApiClient {
 			}
 		);
 		return response.warning;
+	}
+
+	// GET /api/guilds/:guildId/warnings/summary (requireOfficerOrApiKey)
+	async getSummary(
+		guildId: string,
+		periods?: number[],
+		limit?: number,
+		options?: RequestOptions
+	): Promise<WarningSummary> {
+		const params = new URLSearchParams();
+		if (periods && periods.length > 0) {
+			params.set('periods', periods.join(','));
+		}
+		if (limit) {
+			params.set('limit', String(limit));
+		}
+		const queryString = params.toString();
+		const url = `/api/guilds/${guildId}/warnings/summary${queryString ? `?${queryString}` : ''}`;
+		return this.request<WarningSummary>(url, options);
 	}
 }
