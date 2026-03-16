@@ -43,6 +43,10 @@ export class OfficerCommand extends Subcommand {
           name: "warn",
           chatInputRun: "chatInputWarn",
         },
+        {
+          name: "warning-summary",
+          chatInputRun: "chatInputWarningSummary",
+        },
       ],
     })
   }
@@ -128,6 +132,32 @@ export class OfficerCommand extends Subcommand {
                 .setDescription("Optional note (max 500 chars)")
                 .setRequired(false)
                 .setMaxLength(500),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("warning-summary")
+            .setDescription("Show warning point summary for guild members")
+            .addIntegerOption((option) =>
+              option
+                .setName("limit")
+                .setDescription("Number of players to show (default: 10)")
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(50),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("periods")
+                .setDescription("Comma-separated days, e.g., 30,90,180 (default)")
+                .setRequired(false),
             )
             .addStringOption((option) =>
               option
@@ -506,6 +536,135 @@ export class OfficerCommand extends Subcommand {
           "An error occurred while processing your request. Please try again later.",
       })
     }
+  }
+
+  // ============================================
+  // /officer warning-summary
+  // ============================================
+  public async chatInputWarningSummary(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply()
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { membership } = result.value
+      if (membership.memberLevel < 3) {
+        return await interaction.editReply({
+          content: "Only guild leaders and officers can view warning summaries.",
+        })
+      }
+
+      // Get command options
+      const limit = interaction.options.getInteger("limit") ?? 10
+      const periodsStr = interaction.options.getString("periods")
+      const periods = periodsStr
+        ? periodsStr
+            .split(",")
+            .map((s) => parseInt(s.trim(), 10))
+            .filter((n) => !isNaN(n) && n > 0)
+        : [30, 90, 180]
+
+      if (periods.length === 0) {
+        return await interaction.editReply({
+          content:
+            "Invalid periods format. Use comma-separated numbers, e.g., 30,90,180",
+        })
+      }
+
+      // Fetch summary from backend
+      const summary = await container.backendApi.warnings.getSummary(
+        membership.guildId,
+        periods,
+        limit,
+      )
+
+      // Format response
+      const message = this.formatWarningSummary(
+        membership.guildName ?? "Guild",
+        summary,
+        limit,
+      )
+      return await interaction.editReply({ content: message })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content:
+            "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in warning-summary command:", error)
+      return await interaction.editReply({
+        content:
+          "An error occurred while processing your request. Please try again later.",
+      })
+    }
+  }
+
+  private formatWarningSummary(
+    guildName: string,
+    summary: {
+      periods: number[]
+      basePeriod: number
+      players: Array<{
+        allyCode: string
+        name: string | null
+        values: number[]
+      }>
+    },
+    limit: number,
+  ): string {
+    const lines: string[] = []
+
+    lines.push(`**Warning Summary for ${guildName}** (Top ${limit})`)
+    lines.push("")
+    lines.push("```")
+
+    // Build header
+    const headers = ["Player"]
+    for (let i = 0; i < summary.periods.length; i++) {
+      const period = summary.periods[i]
+      if (i === 0) {
+        headers.push(`${period}d`)
+      } else {
+        headers.push(`${period}d avg`)
+      }
+    }
+
+    // Calculate column widths
+    const colWidths = headers.map((h, i) => {
+      if (i === 0) return 16 // Player name column
+      return Math.max(h.length, 5)
+    })
+
+    // Format header row
+    const headerRow = headers.map((h, i) => h.padEnd(colWidths[i]!)).join(" | ")
+    lines.push(headerRow)
+    lines.push(colWidths.map((w) => "-".repeat(w)).join("-+-"))
+
+    // Format player rows
+    if (summary.players.length === 0) {
+      lines.push("No warnings in the selected period")
+    } else {
+      for (const player of summary.players) {
+        const name = (player.name || player.allyCode).substring(0, 16).padEnd(16)
+        const values = player.values.map((v, i) =>
+          String(v).padStart(colWidths[i + 1]!),
+        )
+        lines.push(`${name} | ${values.join(" | ")}`)
+      }
+    }
+
+    lines.push("```")
+    lines.push(`Generated: ${new Date().toISOString().split("T")[0]}`)
+
+    return lines.join("\n")
   }
 
   // ============================================
