@@ -24,7 +24,7 @@ export interface Automation {
 }
 
 export class AutomationApiClient extends BaseApiClient {
-	// GET /api/guilds/:guildId/automations (requireOfficerOrApiKey)
+	// GET /api/guilds/:guildId/automations (requireApiKey, requireOfficer)
 	// callerAllyCode is optional - if not provided, API key auth is used
 	async listByGuild(guildId: string, callerAllyCode?: string): Promise<Automation[]> {
 		const response = await this.request<{ automations: Automation[] }>(

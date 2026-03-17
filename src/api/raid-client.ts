@@ -27,7 +27,7 @@ export interface RaidData {
 }
 
 export class RaidApiClient extends BaseApiClient {
-  // GET /api/guilds/:guildId/raids/active (requireGuildMemberOrApiKey)
+  // GET /api/guilds/:guildId/raids/active (requireApiKey, requireGuildMember)
   // callerAllyCode is optional - if not provided, API key auth is used
   async getActiveRaid(guildId: string, callerAllyCode?: string): Promise<RaidData | null> {
     try {

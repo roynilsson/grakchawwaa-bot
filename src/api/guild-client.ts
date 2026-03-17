@@ -106,7 +106,7 @@ export class GuildApiClient extends BaseApiClient {
 		return response.member;
 	}
 
-	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink (requireOfficerOrApiKey)
+	// POST /api/guilds/:id/ticket-check - Fetch live ticket data from Comlink (requireApiKey, requireOfficer)
 	// callerAllyCode is optional - if not provided, API key auth is used
 	async checkTickets(guildId: string, callerAllyCode?: string): Promise<TicketCheckResult> {
 		return this.request<TicketCheckResult>(`/api/guilds/${guildId}/ticket-check`, {

@@ -102,7 +102,7 @@ export class WarningApiClient extends BaseApiClient {
 		return response.warning;
 	}
 
-	// GET /api/guilds/:guildId/warnings/summary (requireOfficerOrApiKey)
+	// GET /api/guilds/:guildId/warnings/summary (requireApiKey, requireOfficer)
 	async getSummary(
 		guildId: string,
 		periods?: number[],

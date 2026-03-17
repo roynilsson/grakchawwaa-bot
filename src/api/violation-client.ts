@@ -40,7 +40,7 @@ export class ViolationApiClient extends BaseApiClient {
 		return response.violations;
 	}
 
-	// GET /api/guilds/:guildId/violations/daily/:date (requireOfficerOrApiKey)
+	// GET /api/guilds/:guildId/violations/daily/:date (requireApiKey, requireOfficer)
 	// callerAllyCode is optional - if not provided, API key auth is used
 	async getDailyViolations(guildId: string, date: Date, callerAllyCode?: string): Promise<Violation[]> {
 		const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -51,7 +51,7 @@ export class ViolationApiClient extends BaseApiClient {
 		return response.violations;
 	}
 
-	// GET /api/guilds/:guildId/violations/summary (requireOfficerOrApiKey)
+	// GET /api/guilds/:guildId/violations/summary (requireApiKey, requireOfficer)
 	// callerAllyCode is optional - if not provided, API key auth is used
 	async getViolationSummary(guildId: string, daysAgo: number = 30, callerAllyCode?: string): Promise<ViolationSummary[]> {
 		const response = await this.request<{ summary: ViolationSummary[]; period: string }>(
