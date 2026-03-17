@@ -1,7 +1,8 @@
 import { Subcommand } from "@sapphire/plugin-subcommands"
 import { container } from "@sapphire/pieces"
-import { userMention } from "discord.js"
+import { AutocompleteInteraction, userMention } from "discord.js"
 import { normalizeAllyCode, formatAllyCode } from "../utils/ally-code"
+import { buildPlayerWarningSummaryEmbed } from "../utils/warning-embed"
 
 export class PlayerCommand extends Subcommand {
   public constructor(
@@ -15,6 +16,7 @@ export class PlayerCommand extends Subcommand {
         { name: "register", chatInputRun: "chatInputRegister" },
         { name: "unregister", chatInputRun: "chatInputUnregister" },
         { name: "identify", chatInputRun: "chatInputIdentify" },
+        { name: "warnings", chatInputRun: "chatInputWarnings" },
       ],
     })
   }
@@ -62,6 +64,28 @@ export class PlayerCommand extends Subcommand {
           sub
             .setName("identify")
             .setDescription("Show your registered ally codes"),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("warnings")
+            .setDescription("View your warning history and summary")
+            .addIntegerOption((option) =>
+              option
+                .setName("days")
+                .setDescription(
+                  "Number of days to look back (default: 30, max: 365)",
+                )
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(365),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
         ),
     )
   }
@@ -204,6 +228,92 @@ export class PlayerCommand extends Subcommand {
       console.error("Error identifying player:", error)
       return interaction.editReply({
         content: `Failed to identify player. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  public override async autocompleteRun(interaction: AutocompleteInteraction) {
+    const focusedOption = interaction.options.getFocused(true)
+
+    if (focusedOption.name === "ally-code") {
+      try {
+        const players = await container.backendApi.players.list({
+          discordId: interaction.user.id,
+        })
+
+        const choices = players.map(
+          (player: { name?: string; allyCode: string; isMain?: boolean }) => ({
+            name: player.name
+              ? `${player.name} (${player.allyCode})${player.isMain ? " - Main" : ""}`
+              : `${player.allyCode}${player.isMain ? " - Main" : ""}`,
+            value: player.allyCode,
+          }),
+        )
+
+        return interaction.respond(choices.slice(0, 25))
+      } catch {
+        return interaction.respond([])
+      }
+    }
+  }
+
+  public async chatInputWarnings(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    await interaction.deferReply({ ephemeral: true })
+
+    try {
+      const days = interaction.options.getInteger("days") ?? 30
+      const inputAllyCode = interaction.options
+        .getString("ally-code")
+        ?.replace(/-/g, "")
+
+      // Get caller's players
+      const players = await container.backendApi.players.list({
+        discordId: interaction.user.id,
+      })
+
+      if (players.length === 0) {
+        return interaction.editReply({
+          content:
+            "You don't have any registered ally codes. Use `/player register` first.",
+        })
+      }
+
+      // Find target player
+      const player = inputAllyCode
+        ? players.find((p) => p.allyCode === inputAllyCode)
+        : (players.find((p) => p.isMain) ?? players[0])
+
+      if (!player) {
+        return interaction.editReply({
+          content:
+            "You can only view warnings for your own registered ally codes.",
+        })
+      }
+
+      // Check guild membership
+      if (!player.guildMembership) {
+        return interaction.editReply({
+          content: `Player ${player.allyCode} is not a member of any registered guild.`,
+        })
+      }
+
+      // Fetch warning summary
+      const summary = await container.backendApi.warnings.getPlayerSummary(
+        player.guildMembership.guildId,
+        player.allyCode,
+        days,
+        player.allyCode,
+      )
+
+      // Build and send embed
+      const embed = buildPlayerWarningSummaryEmbed(summary)
+      return interaction.editReply({ embeds: [embed] })
+    } catch (error) {
+      console.error("Error in warnings command:", error)
+      return interaction.editReply({
+        content: `Failed to fetch warnings. ${(error as Error).message}`,
       })
     }
   }
