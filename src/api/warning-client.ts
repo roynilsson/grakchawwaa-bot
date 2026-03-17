@@ -38,6 +38,37 @@ export interface Warning {
 	};
 }
 
+export interface PlayerWarningSummary {
+	player: {
+		allyCode: string;
+		playerName: string | null;
+	};
+	period: {
+		days: number;
+		startDate: string;
+		endDate: string;
+	};
+	summary: {
+		totalWarnings: number;
+		totalPoints: number;
+		rank: number;
+		guildTotalPoints: number;
+		guildAveragePoints: number;
+		guildMemberCount: number;
+	};
+	warnings: Array<{
+		id: number;
+		createdAt: string;
+		warningType: {
+			name: string;
+			severity: number;
+			category: string | null;
+		};
+		note: string | null;
+		issuedBy: string | null;
+	}>;
+}
+
 export class WarningApiClient extends BaseApiClient {
 	// GET /api/guilds/:guildId/warning-types?search=Y (requireOfficer)
 	async getTypes(guildId: string, search?: string, callerAllyCode?: string): Promise<WarningType[]> {
@@ -88,5 +119,21 @@ export class WarningApiClient extends BaseApiClient {
 		const queryString = params.toString();
 		const url = `/api/guilds/${guildId}/warnings/summary${queryString ? `?${queryString}` : ''}`;
 		return this.request<WarningSummary>(url, options);
+	}
+
+	// GET /api/guilds/:guildId/warnings/player-summary (requireApiKey + auth check)
+	async getPlayerSummary(
+		guildId: string,
+		allyCode: string,
+		days?: number,
+		callerAllyCode?: string
+	): Promise<PlayerWarningSummary> {
+		const params = new URLSearchParams();
+		params.set('allyCode', allyCode);
+		if (days) {
+			params.set('days', String(days));
+		}
+		const url = `/api/guilds/${guildId}/warnings/player-summary?${params.toString()}`;
+		return this.request<PlayerWarningSummary>(url, { callerAllyCode });
 	}
 }
