@@ -6,6 +6,7 @@ import {
   type AutocompleteInteraction,
 } from "discord.js"
 import type { Player, PlayerGuildMembership } from "../api/player-client"
+import { buildPlayerWarningSummaryEmbed } from "../utils/warning-embed"
 
 interface CommandResponse<T = undefined> {
   success: boolean
@@ -46,6 +47,10 @@ export class OfficerCommand extends Subcommand {
         {
           name: "warning-summary",
           chatInputRun: "chatInputWarningSummary",
+        },
+        {
+          name: "warnings",
+          chatInputRun: "chatInputWarningsPlayer",
         },
       ],
     })
@@ -158,6 +163,33 @@ export class OfficerCommand extends Subcommand {
                 .setName("periods")
                 .setDescription("Comma-separated days, e.g., 30,90,180 (default)")
                 .setRequired(false),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("warnings")
+            .setDescription("View warning history for a guild member (Officers/Leaders only)")
+            .addStringOption((option) =>
+              option
+                .setName("player")
+                .setDescription("Guild member to view warnings for")
+                .setRequired(true)
+                .setAutocomplete(true),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("days")
+                .setDescription("Number of days to look back (default: 30, max: 365)")
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(365),
             )
             .addStringOption((option) =>
               option
@@ -604,6 +636,69 @@ export class OfficerCommand extends Subcommand {
       return await interaction.editReply({
         content:
           "An error occurred while processing your request. Please try again later.",
+      })
+    }
+  }
+
+  // ============================================
+  // /officer warnings
+  // ============================================
+  public async chatInputWarningsPlayer(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply({ ephemeral: true })
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3 && !membership.isAdmin) {
+        return await interaction.editReply({
+          content: "Only guild leaders, officers, and admins can view other players' warnings.",
+        })
+      }
+
+      // Get command options
+      const targetAllyCode = interaction.options.getString("player", true)
+      const days = interaction.options.getInteger("days") ?? 30
+
+      // Validate target is in guild
+      try {
+        await container.backendApi.guilds.getMember(
+          membership.guildId,
+          targetAllyCode,
+        )
+      } catch {
+        return await interaction.editReply({
+          content: "Player not found in your guild.",
+        })
+      }
+
+      // Fetch warning summary
+      const summary = await container.backendApi.warnings.getPlayerSummary(
+        membership.guildId,
+        targetAllyCode,
+        days,
+        player.allyCode,
+      )
+
+      // Build and send embed
+      const embed = buildPlayerWarningSummaryEmbed(summary)
+      return await interaction.editReply({ embeds: [embed] })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content: "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in warnings command:", error)
+      return await interaction.editReply({
+        content: "An error occurred while processing your request. Please try again later.",
       })
     }
   }
