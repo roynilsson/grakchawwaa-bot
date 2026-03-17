@@ -4,6 +4,7 @@ import { ViolationApiClient } from './violation-client';
 import { AutomationApiClient } from './automation-client';
 import { WarningApiClient } from './warning-client';
 import { RaidApiClient } from './raid-client';
+import { LeaveApiClient } from './leave-client';
 
 export class BackendApiClient {
 	public players: PlayerApiClient;
@@ -12,6 +13,7 @@ export class BackendApiClient {
 	public automations: AutomationApiClient;
 	public warnings: WarningApiClient;
 	public raids: RaidApiClient;
+	public leaves: LeaveApiClient;
 
 	constructor(baseUrl: string, apiKey?: string) {
 		this.players = new PlayerApiClient(baseUrl, apiKey);
@@ -20,6 +22,7 @@ export class BackendApiClient {
 		this.automations = new AutomationApiClient(baseUrl, apiKey);
 		this.warnings = new WarningApiClient(baseUrl, apiKey);
 		this.raids = new RaidApiClient(baseUrl, apiKey);
+		this.leaves = new LeaveApiClient(baseUrl, apiKey);
 	}
 }
 
@@ -30,6 +33,7 @@ export * from './violation-client';
 export * from './automation-client';
 export * from './raid-client';
 export * from './warning-client';
+export * from './leave-client';
 
 // Declare in container
 declare module '@sapphire/pieces' {

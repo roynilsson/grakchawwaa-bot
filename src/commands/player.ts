@@ -3,6 +3,7 @@ import { container } from "@sapphire/pieces"
 import { AutocompleteInteraction, userMention } from "discord.js"
 import { normalizeAllyCode, formatAllyCode } from "../utils/ally-code"
 import { buildPlayerWarningSummaryEmbed } from "../utils/warning-embed"
+import type { LeaveType } from "../api/leave-client"
 
 export class PlayerCommand extends Subcommand {
   public constructor(
@@ -17,6 +18,9 @@ export class PlayerCommand extends Subcommand {
         { name: "unregister", chatInputRun: "chatInputUnregister" },
         { name: "identify", chatInputRun: "chatInputIdentify" },
         { name: "warnings", chatInputRun: "chatInputWarnings" },
+        { name: "leave-create", chatInputRun: "chatInputLeaveCreate" },
+        { name: "leave-list", chatInputRun: "chatInputLeaveList" },
+        { name: "leave-delete", chatInputRun: "chatInputLeaveDelete" },
       ],
     })
   }
@@ -78,6 +82,83 @@ export class PlayerCommand extends Subcommand {
                 .setRequired(false)
                 .setMinValue(1)
                 .setMaxValue(365),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("leave-create")
+            .setDescription("Create a new leave of absence")
+            .addStringOption((option) =>
+              option
+                .setName("start-date")
+                .setDescription("Start date (YYYY-MM-DD)")
+                .setRequired(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("end-date")
+                .setDescription("End date (YYYY-MM-DD)")
+                .setRequired(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("type")
+                .setDescription("Leave type (default: away)")
+                .setRequired(false)
+                .addChoices(
+                  { name: "Away - Fully unavailable", value: "away" },
+                  { name: "Busy - May be unreliable", value: "busy" },
+                ),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("note")
+                .setDescription("Optional note (max 500 chars)")
+                .setRequired(false)
+                .setMaxLength(500),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("leave-list")
+            .setDescription("View your leaves of absence")
+            .addBooleanOption((option) =>
+              option
+                .setName("active-only")
+                .setDescription("Only show active/upcoming leaves (default: true)")
+                .setRequired(false),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("leave-delete")
+            .setDescription("Delete a leave of absence")
+            .addIntegerOption((option) =>
+              option
+                .setName("leave-id")
+                .setDescription("ID of the leave to delete")
+                .setRequired(true),
             )
             .addStringOption((option) =>
               option
@@ -316,5 +397,250 @@ export class PlayerCommand extends Subcommand {
         content: `Failed to fetch warnings. ${(error as Error).message}`,
       })
     }
+  }
+
+  // ============================================
+  // /player leave-create
+  // ============================================
+  public async chatInputLeaveCreate(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply({ ephemeral: true })
+
+      const inputAllyCode = interaction.options
+        .getString("ally-code")
+        ?.replace(/-/g, "")
+
+      const players = await container.backendApi.players.list({
+        discordId: interaction.user.id,
+      })
+
+      if (players.length === 0) {
+        return interaction.editReply({
+          content:
+            "You don't have any registered ally codes. Use `/player register` first.",
+        })
+      }
+
+      const player = inputAllyCode
+        ? players.find((p) => p.allyCode === inputAllyCode)
+        : (players.find((p) => p.isMain) ?? players[0])
+
+      if (!player) {
+        return interaction.editReply({
+          content:
+            "You can only create leaves for your own registered ally codes.",
+        })
+      }
+
+      if (!player.guildMembership) {
+        return interaction.editReply({
+          content: `Player ${player.allyCode} is not a member of any registered guild.`,
+        })
+      }
+
+      // Parse dates
+      const startDateInput = interaction.options.getString("start-date", true)
+      const endDateInput = interaction.options.getString("end-date", true)
+
+      const startDate = this.parseDate(startDateInput)
+      const endDate = this.parseDate(endDateInput)
+
+      if (!startDate) {
+        return interaction.editReply({
+          content: "Invalid start date format. Use YYYY-MM-DD (e.g., 2026-03-20).",
+        })
+      }
+
+      if (!endDate) {
+        return interaction.editReply({
+          content: "Invalid end date format. Use YYYY-MM-DD (e.g., 2026-03-25).",
+        })
+      }
+
+      if (startDate > endDate) {
+        return interaction.editReply({
+          content: "Start date must be before or equal to end date.",
+        })
+      }
+
+      const leaveType =
+        (interaction.options.getString("type") as LeaveType) ?? "away"
+      const note = interaction.options.getString("note") ?? undefined
+
+      // Create the leave
+      const leave = await container.backendApi.leaves.create(
+        player.guildMembership.guildId,
+        {
+          playerAllyCode: player.allyCode,
+          startDate,
+          endDate,
+          leaveType,
+          note,
+        },
+        player.allyCode,
+      )
+
+      const typeLabel = leave.leaveType === "away" ? "Away" : "Busy"
+      let response = `Created leave of absence:\n`
+      response += `**Type:** ${typeLabel}\n`
+      response += `**From:** ${startDate}\n`
+      response += `**To:** ${endDate}\n`
+      if (leave.note) {
+        response += `**Note:** ${leave.note}`
+      }
+
+      return interaction.editReply({ content: response })
+    } catch (error) {
+      console.error("Error creating leave:", error)
+      return interaction.editReply({
+        content: `Failed to create leave. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  // ============================================
+  // /player leave-list
+  // ============================================
+  public async chatInputLeaveList(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply({ ephemeral: true })
+
+      const inputAllyCode = interaction.options
+        .getString("ally-code")
+        ?.replace(/-/g, "")
+      const activeOnly = interaction.options.getBoolean("active-only") ?? true
+
+      const players = await container.backendApi.players.list({
+        discordId: interaction.user.id,
+      })
+
+      if (players.length === 0) {
+        return interaction.editReply({
+          content:
+            "You don't have any registered ally codes. Use `/player register` first.",
+        })
+      }
+
+      const player = inputAllyCode
+        ? players.find((p) => p.allyCode === inputAllyCode)
+        : (players.find((p) => p.isMain) ?? players[0])
+
+      if (!player) {
+        return interaction.editReply({
+          content:
+            "You can only view leaves for your own registered ally codes.",
+        })
+      }
+
+      // Fetch leaves
+      const leaves = await container.backendApi.leaves.listByPlayer(
+        player.allyCode,
+        { active: activeOnly },
+      )
+
+      if (leaves.length === 0) {
+        const msg = activeOnly
+          ? "You have no active or upcoming leaves."
+          : "You have no recorded leaves."
+        return interaction.editReply({ content: msg })
+      }
+
+      // Format response
+      let response = `**Your Leaves of Absence**${activeOnly ? " (Active/Upcoming)" : ""}:\n\n`
+
+      for (const leave of leaves.slice(0, 10)) {
+        const typeIcon = leave.leaveType === "away" ? "🚫" : "⚠️"
+        const startDate = leave.startDate.split("T")[0]
+        const endDate = leave.endDate.split("T")[0]
+        response += `${typeIcon} **ID ${leave.id}:** ${startDate} to ${endDate}`
+        response += ` (${leave.leaveType === "away" ? "Away" : "Busy"})`
+        if (leave.note) {
+          const truncatedNote =
+            leave.note.length > 50 ? leave.note.slice(0, 50) + "..." : leave.note
+          response += ` - ${truncatedNote}`
+        }
+        response += "\n"
+      }
+
+      if (leaves.length > 10) {
+        response += `\n_...and ${leaves.length - 10} more_`
+      }
+
+      return interaction.editReply({ content: response })
+    } catch (error) {
+      console.error("Error listing leaves:", error)
+      return interaction.editReply({
+        content: `Failed to fetch leaves. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  // ============================================
+  // /player leave-delete
+  // ============================================
+  public async chatInputLeaveDelete(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply({ ephemeral: true })
+
+      const leaveId = interaction.options.getInteger("leave-id", true)
+      const inputAllyCode = interaction.options
+        .getString("ally-code")
+        ?.replace(/-/g, "")
+
+      const players = await container.backendApi.players.list({
+        discordId: interaction.user.id,
+      })
+
+      if (players.length === 0) {
+        return interaction.editReply({
+          content:
+            "You don't have any registered ally codes. Use `/player register` first.",
+        })
+      }
+
+      const player = inputAllyCode
+        ? players.find((p) => p.allyCode === inputAllyCode)
+        : (players.find((p) => p.isMain) ?? players[0])
+
+      if (!player) {
+        return interaction.editReply({
+          content:
+            "You can only delete leaves for your own registered ally codes.",
+        })
+      }
+
+      // Delete the leave
+      await container.backendApi.leaves.delete(leaveId, player.allyCode)
+
+      return interaction.editReply({
+        content: `Leave #${leaveId} has been deleted.`,
+      })
+    } catch (error) {
+      console.error("Error deleting leave:", error)
+      return interaction.editReply({
+        content: `Failed to delete leave. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  private parseDate(input: string): string | null {
+    const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) return null
+
+    const year = parseInt(match[1]!, 10)
+    const month = parseInt(match[2]!, 10)
+    const day = parseInt(match[3]!, 10)
+
+    if (month < 1 || month > 12) return null
+    if (day < 1 || day > 31) return null
+    if (year < 2020 || year > 2100) return null
+
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
   }
 }

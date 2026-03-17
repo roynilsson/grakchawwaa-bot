@@ -22,18 +22,34 @@ export class TicketReminderProcessor implements NotificationProcessor {
 		}
 
 		try {
-			// Fetch live ticket data from backend (use leader's ally code for auth)
-			const ticketData = await container.backendApi.guilds.checkTickets(
-				automation.guildId,
-				automation.leaderAllyCode
+			// Fetch live ticket data and active leaves in parallel
+			const [ticketData, activeLeaves] = await Promise.all([
+				container.backendApi.guilds.checkTickets(
+					automation.guildId,
+					automation.leaderAllyCode
+				),
+				container.backendApi.leaves.listByGuild(
+					automation.guildId,
+					{ active: true },
+					{ callerAllyCode: automation.leaderAllyCode }
+				),
+			]);
+
+			// Build set of ally codes on "away" leave (fully unavailable)
+			const awayAllyCodes = new Set(
+				activeLeaves
+					.filter((leave) => leave.leaveType === 'away' && leave.playerAllyCode)
+					.map((leave) => leave.playerAllyCode!)
 			);
 
-			// Filter players below threshold
-			const violators = ticketData.memberTickets.filter((m) => m.ticketCount < TICKET_THRESHOLD);
+			// Filter players below threshold, excluding those on away leave
+			const violators = ticketData.memberTickets.filter(
+				(m) => m.ticketCount < TICKET_THRESHOLD && !awayAllyCodes.has(m.allyCode || '')
+			);
 
 			if (!violators.length) {
-				console.log(`No ticket reminder needed for guild ${automation.guildId} - all players at 600`);
-				return { success: true, message: 'All players at threshold' };
+				console.log(`No ticket reminder needed for guild ${automation.guildId} - all players at 600 or on leave`);
+				return { success: true, message: 'All players at threshold or on leave' };
 			}
 
 			const lines = this.buildReminderLines(violators);

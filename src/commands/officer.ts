@@ -6,6 +6,7 @@ import {
   type AutocompleteInteraction,
 } from "discord.js"
 import type { Player, PlayerGuildMembership } from "../api/player-client"
+import type { LeaveType } from "../api/leave-client"
 import { buildPlayerWarningSummaryEmbed } from "../utils/warning-embed"
 
 interface CommandResponse<T = undefined> {
@@ -51,6 +52,14 @@ export class OfficerCommand extends Subcommand {
         {
           name: "warnings",
           chatInputRun: "chatInputWarningsPlayer",
+        },
+        {
+          name: "leave-create",
+          chatInputRun: "chatInputLeaveCreate",
+        },
+        {
+          name: "leave-list",
+          chatInputRun: "chatInputLeaveList",
         },
       ],
     })
@@ -190,6 +199,79 @@ export class OfficerCommand extends Subcommand {
                 .setRequired(false)
                 .setMinValue(1)
                 .setMaxValue(365),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("leave-create")
+            .setDescription("Create a leave of absence for a guild member")
+            .addStringOption((option) =>
+              option
+                .setName("player")
+                .setDescription("Guild member to create leave for")
+                .setRequired(true)
+                .setAutocomplete(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("start-date")
+                .setDescription("Start date (YYYY-MM-DD)")
+                .setRequired(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("end-date")
+                .setDescription("End date (YYYY-MM-DD)")
+                .setRequired(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("type")
+                .setDescription("Leave type (default: away)")
+                .setRequired(false)
+                .addChoices(
+                  { name: "Away - Fully unavailable", value: "away" },
+                  { name: "Busy - May be unreliable", value: "busy" },
+                ),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("note")
+                .setDescription("Optional note (max 500 chars)")
+                .setRequired(false)
+                .setMaxLength(500),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("ally-code")
+                .setDescription("Select one of your registered accounts")
+                .setRequired(false)
+                .setAutocomplete(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("leave-list")
+            .setDescription("View leaves of absence for guild members")
+            .addStringOption((option) =>
+              option
+                .setName("player")
+                .setDescription("Filter by guild member (optional)")
+                .setRequired(false)
+                .setAutocomplete(true),
+            )
+            .addBooleanOption((option) =>
+              option
+                .setName("active-only")
+                .setDescription("Only show active/upcoming leaves (default: true)")
+                .setRequired(false),
             )
             .addStringOption((option) =>
               option
@@ -701,6 +783,205 @@ export class OfficerCommand extends Subcommand {
         content: "An error occurred while processing your request. Please try again later.",
       })
     }
+  }
+
+  // ============================================
+  // /officer leave-create
+  // ============================================
+  public async chatInputLeaveCreate(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply()
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3 && !membership.isAdmin) {
+        return await interaction.editReply({
+          content: "Only guild leaders, officers, and admins can create leaves for members.",
+        })
+      }
+
+      // Get command options
+      const targetAllyCode = interaction.options.getString("player", true)
+      const startDateInput = interaction.options.getString("start-date", true)
+      const endDateInput = interaction.options.getString("end-date", true)
+      const leaveType = (interaction.options.getString("type") as LeaveType) ?? "away"
+      const note = interaction.options.getString("note") ?? undefined
+
+      // Parse dates
+      const startDate = this.parseDate(startDateInput)
+      const endDate = this.parseDate(endDateInput)
+
+      if (!startDate) {
+        return await interaction.editReply({
+          content: "Invalid start date format. Use YYYY-MM-DD (e.g., 2026-03-20).",
+        })
+      }
+
+      if (!endDate) {
+        return await interaction.editReply({
+          content: "Invalid end date format. Use YYYY-MM-DD (e.g., 2026-03-25).",
+        })
+      }
+
+      if (startDate > endDate) {
+        return await interaction.editReply({
+          content: "Start date must be before or equal to end date.",
+        })
+      }
+
+      // Validate target is in guild
+      let targetMember
+      try {
+        targetMember = await container.backendApi.guilds.getMember(
+          membership.guildId,
+          targetAllyCode,
+        )
+      } catch {
+        return await interaction.editReply({
+          content: "Player not found in your guild.",
+        })
+      }
+
+      // Create the leave
+      const leave = await container.backendApi.leaves.create(
+        membership.guildId,
+        {
+          playerAllyCode: targetAllyCode,
+          startDate,
+          endDate,
+          leaveType,
+          note,
+        },
+        player.allyCode,
+      )
+
+      const playerName = targetMember.player.name || targetAllyCode
+      const typeLabel = leave.leaveType === "away" ? "Away" : "Busy"
+
+      let response = `Created leave for **${playerName}**:\n`
+      response += `**Type:** ${typeLabel}\n`
+      response += `**From:** ${startDate}\n`
+      response += `**To:** ${endDate}\n`
+      if (leave.note) {
+        response += `**Note:** ${leave.note}`
+      }
+
+      return await interaction.editReply({ content: response })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content: "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in leave-create command:", error)
+      return await interaction.editReply({
+        content: `Failed to create leave. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  // ============================================
+  // /officer leave-list
+  // ============================================
+  public async chatInputLeaveList(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      await interaction.deferReply()
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3 && !membership.isAdmin) {
+        return await interaction.editReply({
+          content: "Only guild leaders, officers, and admins can view all guild leaves.",
+        })
+      }
+
+      // Get command options
+      const targetAllyCode = interaction.options.getString("player")?.replace(/-/g, "")
+      const activeOnly = interaction.options.getBoolean("active-only") ?? true
+
+      // Fetch leaves
+      const leaves = await container.backendApi.leaves.listByGuild(
+        membership.guildId,
+        { active: activeOnly },
+        { callerAllyCode: player.allyCode },
+      )
+
+      // Filter by player if specified
+      const filteredLeaves = targetAllyCode
+        ? leaves.filter((l) => l.playerAllyCode === targetAllyCode)
+        : leaves
+
+      if (filteredLeaves.length === 0) {
+        const msg = activeOnly
+          ? "No active or upcoming leaves found."
+          : "No leaves found."
+        return await interaction.editReply({ content: msg })
+      }
+
+      // Format response
+      let response = `**Guild Leaves**${activeOnly ? " (Active/Upcoming)" : ""}:\n\n`
+
+      for (const leave of filteredLeaves.slice(0, 15)) {
+        const typeIcon = leave.leaveType === "away" ? "🚫" : "⚠️"
+        const playerName = leave.playerName || leave.playerAllyCode || "Unknown"
+        const startDate = leave.startDate.split("T")[0]
+        const endDate = leave.endDate.split("T")[0]
+        response += `${typeIcon} **${playerName}:** ${startDate} to ${endDate}`
+        if (leave.note) {
+          const truncatedNote =
+            leave.note.length > 40 ? leave.note.slice(0, 40) + "..." : leave.note
+          response += ` - ${truncatedNote}`
+        }
+        response += "\n"
+      }
+
+      if (filteredLeaves.length > 15) {
+        response += `\n_...and ${filteredLeaves.length - 15} more_`
+      }
+
+      return await interaction.editReply({ content: response })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content: "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in leave-list command:", error)
+      return await interaction.editReply({
+        content: `Failed to fetch leaves. ${(error as Error).message}`,
+      })
+    }
+  }
+
+  private parseDate(input: string): string | null {
+    const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) return null
+
+    const year = parseInt(match[1]!, 10)
+    const month = parseInt(match[2]!, 10)
+    const day = parseInt(match[3]!, 10)
+
+    if (month < 1 || month > 12) return null
+    if (day < 1 || day > 31) return null
+    if (year < 2020 || year > 2100) return null
+
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
   }
 
   private formatWarningSummary(
