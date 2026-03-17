@@ -4,7 +4,7 @@ Discord bot for Star Wars: Galaxy of Heroes guild management.
 
 ## Overview
 
-The bot provides Discord slash commands for player registration, guild management, and officer tools. It also handles automated notifications from the backend (ticket violations, raid reminders, anniversaries).
+The bot provides Discord slash commands for player registration, guild management, warnings, and leave management. It also handles automated notifications from the backend (ticket violations, raid reminders, warning summaries, anniversaries).
 
 **Configuration is done via the web dashboard** - the bot executes automations configured there.
 
@@ -13,7 +13,7 @@ The bot provides Discord slash commands for player registration, guild managemen
 - **Framework:** Sapphire (Discord.js wrapper)
 - **Discord.js:** v14+
 - **Language:** TypeScript
-- **Runtime:** Node.js 16+
+- **Runtime:** Node.js 20+
 - **API Client:** HTTP client to grakchawwaa-backend
 
 ## Commands
@@ -25,6 +25,10 @@ The bot provides Discord slash commands for player registration, guild managemen
 | `/player register <ally-code> [is-alt] [discord-user]` | Register a player with an ally code |
 | `/player unregister <ally-code>` | Unregister a player by ally code |
 | `/player identify` | Show your registered ally codes (main + alts) |
+| `/player warnings [days]` | View your personal warning summary |
+| `/player leave-create <start> <end> [reason]` | Request leave for a date range |
+| `/player leave-list` | View your leave requests |
+| `/player leave-delete <id>` | Delete a leave request |
 
 ### Guild Commands (`/guild`)
 
@@ -35,7 +39,7 @@ The bot provides Discord slash commands for player registration, guild managemen
 
 ### Officer Commands (`/officer`)
 
-These commands require officer or leader status in your SWGOH guild (member level 3+).
+These commands require officer, leader, or admin status in your SWGOH guild.
 
 | Command | Description |
 |---------|-------------|
@@ -43,6 +47,10 @@ These commands require officer or leader status in your SWGOH guild (member leve
 | `/officer setup channel-add <channel> [ally-code]` | Pre-approve a Discord channel for bot use |
 | `/officer setup channel-remove <channel> [ally-code]` | Remove a pre-approved channel |
 | `/officer warn <player> <type> [note] [ally-code]` | Issue a warning to a guild member |
+| `/officer warning-summary [limit] [periods]` | View guild warning point summary |
+| `/officer warnings <player> [days]` | View a player's warning summary |
+| `/officer leave-create <player> <start> <end> [reason]` | Create leave for a player |
+| `/officer leave-list [player] [status]` | View guild leave requests |
 
 ### Utility Commands
 
@@ -69,6 +77,11 @@ The bot processes notifications triggered by the backend's automation system:
 - Sends notifications when players are below configured targets
 - Configurable reminder hours before raid end
 
+### Warning Summaries
+- Posts periodic warning point summaries
+- Configurable time periods and player limits
+- Shows top offenders with point totals
+
 ### Anniversary Notifications
 - Posts guild member anniversary messages
 - Celebrates time in guild milestones
@@ -80,22 +93,28 @@ grakchawwaa-bot/
 ├── src/
 │   ├── commands/           # Slash command handlers
 │   │   ├── ping.ts
-│   │   ├── player.ts
-│   │   ├── guild.ts
-│   │   └── officer.ts
+│   │   ├── player.ts       # Player registration, warnings, leave
+│   │   ├── guild.ts        # Guild info and ticket summaries
+│   │   └── officer.ts      # Officer tools (warn, setup, leave mgmt)
 │   ├── api/                # Backend API clients
 │   │   ├── base-client.ts
 │   │   ├── player-client.ts
 │   │   ├── guild-client.ts
 │   │   ├── violation-client.ts
+│   │   ├── warning-client.ts
+│   │   ├── leave-client.ts
 │   │   └── automation-client.ts
-│   ├── services/           # Business logic
-│   │   ├── violation-summary.ts
-│   │   └── cache.ts
 │   ├── processors/         # Notification processors
 │   │   └── notification/
+│   │       ├── TicketCollectionNotificationProcessor.ts
+│   │       ├── TicketReminderProcessor.ts
+│   │       ├── RaidReminderProcessor.ts
+│   │       ├── WarningSummaryProcessor.ts
+│   │       └── AnniversaryProcessor.ts
 │   ├── workers/            # Background workers
-│   │   └── notification-worker.ts
+│   │   └── notificationWorker.ts
+│   ├── utils/              # Shared utilities
+│   │   └── embeds.ts       # Discord embed builders
 │   └── index.ts            # Bot entry point
 ├── docker-compose.yml
 ├── .env.example
@@ -106,7 +125,7 @@ grakchawwaa-bot/
 
 ### Prerequisites
 
-- Node.js 16+
+- Node.js 20+
 - pnpm
 - Docker and Docker Compose
 - A Discord bot application (for development)
@@ -129,13 +148,6 @@ DISCORD_PUBLIC_KEY=your_public_key
 # Backend API
 BACKEND_URL=http://grakchawwaa-backend:3000
 INTERNAL_API_KEY=your_api_key
-
-# (Legacy - if running locally without Docker)
-PGUSER=grakchawwaa
-PGHOST=localhost
-PGPORT=5432
-PGPASSWORD=dev_password
-PGDATABASE=grakchawwaa_dev
 ```
 
 ### Development (Docker - Recommended)
@@ -188,7 +200,7 @@ Discord <---> Bot <---> Backend API
 
 The bot:
 1. Receives slash commands from Discord
-2. Calls the backend API for data/actions
+2. Calls the backend API for data/actions (with `x-caller-ally-code` header for auth)
 3. Responds to Discord with results
 4. Polls for due automations and processes notifications
 
