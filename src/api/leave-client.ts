@@ -89,13 +89,17 @@ export class LeaveApiClient extends BaseApiClient {
 	): Promise<Leave[]> {
 		const queryParams = new URLSearchParams();
 		if (params?.active !== undefined) {
-			queryParams.set('active', String(params.active));
+			queryParams.set('activeOnly', String(params.active));
 		}
 		if (params?.playerId) {
 			queryParams.set('playerId', params.playerId);
 		}
 		const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
-		return this.request<Leave[]>(`/api/guilds/${guildId}/leaves${query}`, options);
+		const response = await this.request<{ leaves: Leave[]; count: number; total: number; page: number }>(
+			`/api/guilds/${guildId}/leaves${query}`,
+			options
+		);
+		return response.leaves;
 	}
 
 	/**
