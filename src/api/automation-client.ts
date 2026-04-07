@@ -6,6 +6,12 @@ export interface ResolvedChannel {
 	name: string;
 }
 
+export interface ResolvedRole {
+	id: number;
+	discordRoleId: string;
+	name: string;
+}
+
 export interface Automation {
 	id: number;
 	guildId: string;
@@ -17,6 +23,7 @@ export interface Automation {
 	lastRunAt?: string;
 	config: Record<string, unknown>;
 	resolvedChannel?: ResolvedChannel;
+	resolvedRole?: ResolvedRole;
 	leaderAllyCode?: string; // Guild leader's ally code for bot auth
 	enabled: boolean;
 	createdAt: string;

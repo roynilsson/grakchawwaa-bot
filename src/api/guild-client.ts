@@ -36,6 +36,12 @@ export interface GuildChannel {
 	name: string;
 }
 
+export interface GuildRole {
+	id: number;
+	discordRoleId: string;
+	name: string;
+}
+
 export interface TicketCheckResult {
 	guildId: string;
 	guildName: string;
@@ -171,5 +177,49 @@ export class GuildApiClient extends BaseApiClient {
 	): Promise<GuildChannel | null> {
 		const channels = await this.listChannels(guildId, callerAllyCode);
 		return channels.find((c) => c.discordChannelId === discordChannelId) ?? null;
+	}
+
+	// GET /api/guilds/:guildId/roles - List approved roles (requireOfficer)
+	async listRoles(guildId: string, callerAllyCode: string): Promise<GuildRole[]> {
+		const response = await this.request<{ roles: GuildRole[] }>(
+			`/api/guilds/${guildId}/roles`,
+			{ callerAllyCode }
+		);
+		return response.roles;
+	}
+
+	// POST /api/guilds/:guildId/roles - Add approved role (requireOfficer)
+	async addRole(
+		guildId: string,
+		data: { discordRoleId: string; name: string },
+		callerAllyCode: string
+	): Promise<GuildRole> {
+		const response = await this.request<{ role: GuildRole }>(
+			`/api/guilds/${guildId}/roles`,
+			{
+				method: 'POST',
+				body: JSON.stringify(data),
+				callerAllyCode
+			}
+		);
+		return response.role;
+	}
+
+	// DELETE /api/guilds/:guildId/roles/:id - Remove approved role (requireOfficer)
+	async removeRole(guildId: string, roleId: number, callerAllyCode: string): Promise<void> {
+		await this.request<void>(`/api/guilds/${guildId}/roles/${roleId}`, {
+			method: 'DELETE',
+			callerAllyCode
+		});
+	}
+
+	// GET role by Discord ID (convenience method) (requireOfficer)
+	async findRoleByDiscordId(
+		guildId: string,
+		discordRoleId: string,
+		callerAllyCode: string
+	): Promise<GuildRole | null> {
+		const roles = await this.listRoles(guildId, callerAllyCode);
+		return roles.find((r) => r.discordRoleId === discordRoleId) ?? null;
 	}
 }

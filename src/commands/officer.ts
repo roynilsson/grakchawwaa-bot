@@ -2,7 +2,9 @@ import { Subcommand } from "@sapphire/plugin-subcommands"
 import { container } from "@sapphire/pieces"
 import {
   channelMention,
+  roleMention,
   TextChannel,
+  Role,
   type AutocompleteInteraction,
 } from "discord.js"
 import type { Player, PlayerGuildMembership } from "../api/player-client"
@@ -39,6 +41,8 @@ export class OfficerCommand extends Subcommand {
             { name: "register-guild", chatInputRun: "chatInputRegisterGuild" },
             { name: "channel-add", chatInputRun: "chatInputChannelAdd" },
             { name: "channel-remove", chatInputRun: "chatInputChannelRemove" },
+            { name: "role-add", chatInputRun: "chatInputRoleAdd" },
+            { name: "role-remove", chatInputRun: "chatInputRoleRemove" },
           ],
         },
         {
@@ -109,6 +113,44 @@ export class OfficerCommand extends Subcommand {
                   option
                     .setName("channel")
                     .setDescription("Discord channel to unregister")
+                    .setRequired(true),
+                )
+                .addStringOption((option) =>
+                  option
+                    .setName("ally-code")
+                    .setDescription("Select one of your registered accounts")
+                    .setRequired(false)
+                    .setAutocomplete(true),
+                ),
+            )
+            .addSubcommand((sub) =>
+              sub
+                .setName("role-add")
+                .setDescription("Pre-approve a Discord role for bot use")
+                .addRoleOption((option) =>
+                  option
+                    .setName("role")
+                    .setDescription("Discord role to register")
+                    .setRequired(true),
+                )
+                .addStringOption((option) =>
+                  option
+                    .setName("ally-code")
+                    .setDescription("Select one of your registered accounts")
+                    .setRequired(false)
+                    .setAutocomplete(true),
+                ),
+            )
+            .addSubcommand((sub) =>
+              sub
+                .setName("role-remove")
+                .setDescription(
+                  "Remove a pre-approved Discord role from bot use",
+                )
+                .addRoleOption((option) =>
+                  option
+                    .setName("role")
+                    .setDescription("Discord role to unregister")
                     .setRequired(true),
                 )
                 .addStringOption((option) =>
@@ -559,6 +601,119 @@ export class OfficerCommand extends Subcommand {
       }
 
       container.logger.error("Error in channel-remove command:", error)
+      return await interaction.editReply({
+        content:
+          "An error occurred while processing your request. Please try again later.",
+      })
+    }
+  }
+
+  // ============================================
+  // /officer setup role-add
+  // ============================================
+  public async chatInputRoleAdd(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      const role = this.validateRole(interaction)
+      if (!role.success || !role.value) {
+        return await interaction.reply(role.response)
+      }
+
+      await interaction.deferReply()
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3) {
+        return await interaction.editReply({
+          content:
+            "Only guild leaders and officers can register roles for the guild.",
+        })
+      }
+
+      const registrationResult = await this.registerRole(
+        membership.guildId,
+        role.value.id,
+        role.value.name,
+        player.allyCode,
+      )
+      if (!registrationResult.success) {
+        return await interaction.editReply(registrationResult.response)
+      }
+
+      return await interaction.editReply({
+        content: `Role ${roleMention(role.value.id)} has been registered for guild **${membership.guildName}**.`,
+      })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content:
+            "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in role-add command:", error)
+      return await interaction.editReply({
+        content:
+          "An error occurred while processing your request. Please try again later.",
+      })
+    }
+  }
+
+  // ============================================
+  // /officer setup role-remove
+  // ============================================
+  public async chatInputRoleRemove(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ) {
+    try {
+      const role = this.validateRole(interaction)
+      if (!role.success || !role.value) {
+        return await interaction.reply(role.response)
+      }
+
+      await interaction.deferReply()
+
+      const result = await this.resolvePlayerWithMembership(interaction)
+      if (!result.success || !result.value) {
+        return await interaction.editReply(result.response)
+      }
+
+      const { player, membership } = result.value
+      if (membership.memberLevel < 3) {
+        return await interaction.editReply({
+          content:
+            "Only guild leaders and officers can unregister roles from the guild.",
+        })
+      }
+
+      const unregistrationResult = await this.unregisterRole(
+        membership.guildId,
+        role.value.id,
+        player.allyCode,
+      )
+      if (!unregistrationResult.success) {
+        return await interaction.editReply(unregistrationResult.response)
+      }
+
+      return await interaction.editReply({
+        content: `Role ${roleMention(role.value.id)} has been unregistered from guild **${membership.guildName}**.`,
+      })
+    } catch (error) {
+      if (!interaction.deferred) {
+        return await interaction.reply({
+          content:
+            "An error occurred while processing your request. Please try again later.",
+          ephemeral: true,
+        })
+      }
+
+      container.logger.error("Error in role-remove command:", error)
       return await interaction.editReply({
         content:
           "An error occurred while processing your request. Please try again later.",
@@ -1208,6 +1363,110 @@ export class OfficerCommand extends Subcommand {
         success: false,
         response: {
           content: "Failed to unregister channel. Please try again later.",
+        },
+      }
+    }
+  }
+
+  private validateRole(
+    interaction: Subcommand.ChatInputCommandInteraction,
+  ): CommandResponse<Role> {
+    const role = interaction.options.getRole("role")
+    if (!role || !(role instanceof Role)) {
+      return {
+        success: false,
+        response: {
+          content: "Please provide a valid role.",
+          ephemeral: true,
+        },
+      }
+    }
+    return {
+      success: true,
+      response: { content: "" },
+      value: role,
+    }
+  }
+
+  private async registerRole(
+    guildId: string,
+    discordRoleId: string,
+    roleName: string,
+    callerAllyCode: string,
+  ): Promise<CommandResponse> {
+    try {
+      const existingRole =
+        await container.backendApi.guilds.findRoleByDiscordId(
+          guildId,
+          discordRoleId,
+          callerAllyCode,
+        )
+
+      if (existingRole) {
+        return {
+          success: false,
+          response: {
+            content: "This role is already registered for this guild.",
+          },
+        }
+      }
+
+      await container.backendApi.guilds.addRole(
+        guildId,
+        {
+          discordRoleId,
+          name: roleName,
+        },
+        callerAllyCode,
+      )
+
+      return { success: true, response: { content: "" } }
+    } catch (error) {
+      container.logger.error("Failed to register role:", error)
+      return {
+        success: false,
+        response: {
+          content: "Failed to register role. Please try again later.",
+        },
+      }
+    }
+  }
+
+  private async unregisterRole(
+    guildId: string,
+    discordRoleId: string,
+    callerAllyCode: string,
+  ): Promise<CommandResponse> {
+    try {
+      const registeredRole =
+        await container.backendApi.guilds.findRoleByDiscordId(
+          guildId,
+          discordRoleId,
+          callerAllyCode,
+        )
+
+      if (!registeredRole) {
+        return {
+          success: false,
+          response: {
+            content: "This role is not registered for this guild.",
+          },
+        }
+      }
+
+      await container.backendApi.guilds.removeRole(
+        guildId,
+        registeredRole.id,
+        callerAllyCode,
+      )
+
+      return { success: true, response: { content: "" } }
+    } catch (error) {
+      container.logger.error("Failed to unregister role:", error)
+      return {
+        success: false,
+        response: {
+          content: "Failed to unregister role. Please try again later.",
         },
       }
     }
