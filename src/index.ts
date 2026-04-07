@@ -2,7 +2,6 @@ import "@sapphire/plugin-subcommands/register"
 import { container } from "@sapphire/pieces"
 import { BackendApiClient } from "./api"
 import { DiscordBotClient } from "./discord-bot-client"
-import { AnniversaryMonitorService } from "./services/anniversary-monitor"
 import { ViolationSummaryService } from "./services/violation-summary"
 import { NotificationWorker } from "./workers/notificationWorker"
 
@@ -17,13 +16,9 @@ const summaryService = new ViolationSummaryService(client)
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user?.tag}!`)
 
-  // Start the notification worker (handles ticket_reminder and ticket_collection automations)
+  // Start the notification worker (handles all bot-processed automations)
   const notificationWorker = new NotificationWorker(client)
   notificationWorker.start()
-
-  // Start the anniversary monitoring service
-  const anniversaryMonitor = new AnniversaryMonitorService(client)
-  anniversaryMonitor.start()
 })
 
 client.on("interactionCreate", async (interaction) => {

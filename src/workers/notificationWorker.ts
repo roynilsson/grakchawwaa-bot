@@ -1,9 +1,11 @@
 import { container } from '@sapphire/pieces';
 import type { DiscordBotClient } from '../discord-bot-client';
 import type { NotificationProcessor } from '../processors/NotificationProcessor';
+import { AnniversaryProcessor } from '../processors/AnniversaryProcessor';
 import { TicketReminderProcessor } from '../processors/TicketReminderProcessor';
 import { TicketCollectionNotificationProcessor } from '../processors/TicketCollectionNotificationProcessor';
 import { RaidReminderProcessor } from '../processors/RaidReminderProcessor';
+import { RaidStartNotificationProcessor } from '../processors/RaidStartNotificationProcessor';
 import { WarningSummaryProcessor } from '../processors/WarningSummaryProcessor';
 import { ViolationSummaryService } from '../services/violation-summary';
 
@@ -19,9 +21,11 @@ export class NotificationWorker {
 		const summaryService = new ViolationSummaryService(client);
 
 		this.processors = {
+			anniversary: new AnniversaryProcessor(client),
 			ticket_reminder: new TicketReminderProcessor(client),
 			ticket_collection_notification: new TicketCollectionNotificationProcessor(client, summaryService),
 			raid_reminder: new RaidReminderProcessor(client),
+			raid_start_notification: new RaidStartNotificationProcessor(client),
 			warning_summary: new WarningSummaryProcessor(client)
 		};
 	}
