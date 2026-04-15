@@ -139,9 +139,10 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		const timeRemaining = this.formatTimeRemaining(expireTime);
 
 		const lines = underperformers.map((player, index) => {
+			const name = player.playerName || player.allyCode;
 			const label = player.discordId
-				? userMention(player.discordId)
-				: player.playerName || player.allyCode;
+				? `${userMention(player.discordId)} (${name})`
+				: name;
 
 			const scoreDisplay = player.score > 0
 				? `${this.formatScore(player.score)} / ${this.formatScore(player.target)}`

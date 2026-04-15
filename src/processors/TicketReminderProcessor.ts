@@ -71,7 +71,7 @@ export class TicketReminderProcessor implements NotificationProcessor {
 
 	private resolveReminderLabel(violator: MemberTicketInfo): string {
 		if (violator.discordId) {
-			return userMention(violator.discordId);
+			return `${userMention(violator.discordId)} (${violator.playerName})`;
 		}
 		return violator.playerName;
 	}
