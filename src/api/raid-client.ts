@@ -10,9 +10,11 @@ export interface RaidData {
     isFinalized: boolean;
   } | null;
   results: Array<{
-    playerId: string;
-    playerName?: string;
-    discordId?: string;
+    player: {
+      allyCode: string;
+      name?: string;
+      discordId?: string;
+    };
     score: number;
     rank: number;
   }>;
@@ -20,7 +22,10 @@ export interface RaidData {
     guildMinScore: number;
   };
   playerConfigs: Array<{
-    playerId: string;
+    player: {
+      allyCode: string;
+      name?: string;
+    };
     playerMinScore?: number;
     allTimeHigh: number;
   }>;

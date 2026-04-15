@@ -20,8 +20,8 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		}
 
 		try {
-			// Fetch raid data from backend (API key auth - no caller ally code needed)
-			const raidData = await container.backendApi.raids.getActiveRaid(automation.guildId);
+			// Fetch raid data from backend using guild leader as caller
+			const raidData = await container.backendApi.raids.getActiveRaid(automation.guildId, automation.leaderAllyCode);
 
 			if (!raidData || !raidData.raid) {
 				console.log(`No active raid for guild ${automation.guildId}`);
@@ -47,7 +47,7 @@ export class RaidReminderProcessor implements NotificationProcessor {
 	}
 
 	private identifyUnderperformers(raidData: RaidData): Array<{
-		playerId: string;
+		allyCode: string;
 		playerName?: string;
 		discordId?: string;
 		score: number;
@@ -55,7 +55,7 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		targetType: string;
 	}> {
 		const underperformers: Array<{
-			playerId: string;
+			allyCode: string;
 			playerName?: string;
 			discordId?: string;
 			score: number;
@@ -66,39 +66,43 @@ export class RaidReminderProcessor implements NotificationProcessor {
 
 		for (const result of raidData.results) {
 			const playerConfig = raidData.playerConfigs.find(
-				(pc) => pc.playerId === result.playerId
+				(pc) => pc.player.allyCode === result.player.allyCode
 			);
+
+			// Effective target: personal target if set, otherwise guild minimum
+			const effectiveTarget = playerConfig?.playerMinScore ?? guildMinScore;
 
 			let isBelowThreshold = false;
 			let target = 0;
 			let targetType = '';
 
-			// Check guild minimum
-			if (guildMinScore > 0 && result.score < guildMinScore) {
-				isBelowThreshold = true;
-				target = guildMinScore;
-				targetType = 'Guild Minimum';
-			}
-
-			// Check player minimum (overrides guild minimum display)
-			if (playerConfig?.playerMinScore && result.score < playerConfig.playerMinScore) {
-				isBelowThreshold = true;
-				target = playerConfig.playerMinScore;
-				targetType = 'Personal Target';
-			}
-
 			// Check zero score (not participated)
 			if (result.score === 0) {
 				isBelowThreshold = true;
-				target = guildMinScore || playerConfig?.playerMinScore || 0;
+				target = effectiveTarget;
 				targetType = 'Not Participated';
+			} else if (playerConfig?.playerMinScore && result.score < playerConfig.playerMinScore) {
+				// Check personal target first
+				isBelowThreshold = true;
+				target = playerConfig.playerMinScore;
+				targetType = 'Personal Target';
+			} else if (guildMinScore > 0 && result.score < guildMinScore) {
+				// Check guild minimum (used as default target)
+				isBelowThreshold = true;
+				target = guildMinScore;
+				targetType = 'Target';
+			} else if (playerConfig?.allTimeHigh && result.score < playerConfig.allTimeHigh * 0.9) {
+				// Below 90% of all-time high
+				isBelowThreshold = true;
+				target = Math.round(playerConfig.allTimeHigh * 0.9);
+				targetType = '90% ATH';
 			}
 
 			if (isBelowThreshold) {
 				underperformers.push({
-					playerId: result.playerId,
-					playerName: result.playerName,
-					discordId: result.discordId,
+					allyCode: result.player.allyCode,
+					playerName: result.player.name,
+					discordId: result.player.discordId,
 					score: result.score,
 					target,
 					targetType,
@@ -113,7 +117,7 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		channelId: string,
 		raidData: RaidData,
 		underperformers: Array<{
-			playerId: string;
+			allyCode: string;
 			playerName?: string;
 			discordId?: string;
 			score: number;
@@ -137,7 +141,7 @@ export class RaidReminderProcessor implements NotificationProcessor {
 		const lines = underperformers.map((player, index) => {
 			const label = player.discordId
 				? userMention(player.discordId)
-				: player.playerName || player.playerId;
+				: player.playerName || player.allyCode;
 
 			const scoreDisplay = player.score > 0
 				? `${this.formatScore(player.score)} / ${this.formatScore(player.target)}`

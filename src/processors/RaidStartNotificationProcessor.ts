@@ -24,7 +24,7 @@ export class RaidStartNotificationProcessor implements NotificationProcessor {
 
 		try {
 			// Fetch raid data from backend (API key auth - no caller ally code needed)
-			const raidData = await container.backendApi.raids.getActiveRaid(automation.guildId);
+			const raidData = await container.backendApi.raids.getActiveRaid(automation.guildId, automation.leaderAllyCode);
 
 			if (!raidData || !raidData.raid) {
 				console.log(`No active raid for guild ${automation.guildId}`);
